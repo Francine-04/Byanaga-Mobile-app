@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "874664242070",
+    "firebase_url": "https://byanaga-26574-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "byanaga-26574",
+    "storage_bucket": "byanaga-26574.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:874664242070:android:54dcb78326947ec45dcbb7",
+        "android_client_info": {
+          "package_name": "com.example.tourism_dashboard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCT4NwqBnXQh0HRqlrz7FDbHt9SyWGg39Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

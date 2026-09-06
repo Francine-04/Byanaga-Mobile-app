@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "BYANAGA",
+    "slug": "byanaga-app",
+    "scheme": "byanaga",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.byanaga",
+      "usesAppleSignIn": true
+    },
+    "android": {
+      "package": "com.example.tourism_dashboard",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#3498DB",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "@rnmapbox/maps",
+      "@react-native-community/datetimepicker",
+      "expo-web-browser",
+      "expo-apple-authentication"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "aa082be0-7dcf-4a53-86ee-f8ab8ee3d5a2"
+      }
+    }
+  }
+}
