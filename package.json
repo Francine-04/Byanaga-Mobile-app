@@ -36,9 +36,12 @@
     "start:dev-client": "expo start --dev-client",
     "android": "expo run:android",
     "android:dev": "expo run:android",
+    "build:android:dev": "eas build --platform android --profile development",
+    "build:android:preview": "eas build --platform android --profile preview",
     "ios": "expo run:ios",
     "ios:dev": "expo run:ios",
     "prebuild": "expo prebuild",
+    "test": "node --test tests/*.test.cjs",
     "web": "expo start --web"
   },
   "private": true
