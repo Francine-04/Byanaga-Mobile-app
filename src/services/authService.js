@@ -1,6 +1,8 @@
 import { Platform } from 'react-native';
 import {
+  confirmPasswordReset,
   createUserWithEmailAndPassword,
+  deleteUser,
   FacebookAuthProvider,
   GoogleAuthProvider,
   OAuthProvider,
@@ -9,10 +11,13 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  sendPasswordResetEmail,
   updateProfile,
+  verifyPasswordResetCode,
 } from 'firebase/auth';
 import { get, ref, serverTimestamp, set, update } from 'firebase/database';
 import { auth, realtimeDb } from './firebaseApp';
+import { isGmailAddress, isStrongPassword, normalizeEmail, passwordRuleText } from '../utils/authValidation';
 
 const USERS_PATH = 'users';
 export const AUTH_REQUIRED_ERROR_CODE = 'auth/required';
@@ -47,20 +52,32 @@ export async function registerTraveler({ email, password, profile, preferences }
     await updateProfile(user, { displayName: profile.name }).catch(() => {});
   }
 
-  await set(ref(realtimeDb, `${USERS_PATH}/${user.uid}`), {
-    userId: user.uid,
-    email: user.email || email,
-    firstName: profile.firstName || '',
-    lastName: profile.lastName || '',
-    name: profile.name || '',
-    age: profile.age || null,
-    gender: profile.gender || '',
-    nationality: profile.nationality || '',
-    image: profile.image || null,
-    preferences: normalizePreferences(preferences),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  try {
+    await set(ref(realtimeDb, `${USERS_PATH}/${user.uid}`), {
+      userId: user.uid,
+      email: user.email || email,
+      firstName: profile.firstName || '',
+      lastName: profile.lastName || '',
+      name: profile.name || '',
+      age: profile.age || null,
+      gender: profile.gender || '',
+      nationality: profile.nationality || '',
+      image: profile.image || null,
+      preferences: normalizePreferences(preferences),
+      role: 'tourist',
+      accountType: 'tourist',
+      authProvider: 'password',
+      authProviders: ['password'],
+      emailVerified: user.emailVerified,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+    });
+  } catch (error) {
+    // Avoid leaving an Auth-only account when the traveler profile cannot be saved.
+    await deleteUser(user).catch(() => {});
+    throw error;
+  }
 
   const record = await loadTravelerRecord(user.uid);
   return { user, record };
@@ -68,8 +85,80 @@ export async function registerTraveler({ email, password, profile, preferences }
 
 export async function loginTraveler({ email, password }) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
-  const record = await loadTravelerRecord(credential.user.uid);
-  return { user: credential.user, record };
+  const user = credential.user;
+  const userRef = ref(realtimeDb, `${USERS_PATH}/${user.uid}`);
+  const existing = await loadTravelerRecord(user.uid);
+
+  if (!existing) {
+    const name = user.displayName || nameFromEmail(user.email || email) || 'Traveler';
+    const parts = splitName(name);
+    await set(userRef, {
+      userId: user.uid,
+      email: user.email || normalizeEmail(email),
+      firstName: parts.firstName,
+      lastName: parts.lastName,
+      name,
+      age: null,
+      gender: '',
+      nationality: '',
+      image: user.photoURL || null,
+      preferences: normalizePreferences(),
+      role: 'tourist',
+      accountType: 'tourist',
+      authProvider: 'password',
+      authProviders: user.providerData?.map((provider) => provider.providerId).filter(Boolean) || ['password'],
+      emailVerified: user.emailVerified,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+    });
+  } else {
+    await update(userRef, {
+      role: existing.role || 'tourist',
+      accountType: existing.accountType || 'tourist',
+      emailVerified: user.emailVerified,
+      updatedAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+    });
+  }
+
+  const record = await loadTravelerRecord(user.uid);
+  return { user, record, createdTravelerRecord: !existing };
+}
+
+export async function sendTravelerPasswordReset(email) {
+  const normalized = normalizeEmail(email);
+  if (!isGmailAddress(normalized)) throw new Error('Enter the Gmail address you registered with.');
+  try {
+    await sendPasswordResetEmail(auth, normalized);
+  } catch (error) {
+    // Keep the response consistent when Firebase account enumeration protection is disabled.
+    if (error?.code !== 'auth/user-not-found') throw error;
+  }
+}
+
+export async function verifyTravelerPasswordReset(oobCode) {
+  const code = String(oobCode || '').trim();
+  if (!code) {
+    const error = new Error('The password reset link is incomplete. Request a new link and try again.');
+    error.code = 'auth/missing-action-code';
+    throw error;
+  }
+
+  const email = await verifyPasswordResetCode(auth, code);
+  return normalizeEmail(email);
+}
+
+export async function confirmTravelerPasswordReset({ oobCode, password }) {
+  const code = String(oobCode || '').trim();
+  if (!code) {
+    const error = new Error('The password reset link is incomplete. Request a new link and try again.');
+    error.code = 'auth/missing-action-code';
+    throw error;
+  }
+  if (!isStrongPassword(password)) throw new Error(passwordRuleText);
+
+  await confirmPasswordReset(auth, code, password);
 }
 
 export async function signInWithWebSocialProvider(providerKey) {
@@ -79,17 +168,26 @@ export async function signInWithWebSocialProvider(providerKey) {
 
   const provider = createWebAuthProvider(providerKey);
   const credential = await signInWithPopup(auth, provider);
-  return completeSocialSignIn(credential, providerKey);
+  return completeSocialSignIn(credential, providerKey).catch(rethrowSocialProfileError);
 }
 
 export async function signInWithSocialCredential({ provider, idToken, accessToken, profile }) {
   const authCredential = createProviderCredential({ provider, idToken, accessToken });
   const credential = await signInWithCredential(auth, authCredential);
-  return completeSocialSignIn(credential, provider, profile);
+  return completeSocialSignIn(credential, provider, profile).catch(rethrowSocialProfileError);
 }
 
 export async function signOutTraveler() {
   await signOut(auth);
+}
+
+export async function completeTravelerOnboarding(choice) {
+  const user = await ensureAuthenticatedUser();
+  await update(ref(realtimeDb, `${USERS_PATH}/${user.uid}`), {
+    locationPermission: choice,
+    onboardingCompletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function loadTravelerRecord(userId) {
@@ -118,6 +216,7 @@ export async function saveTravelerProfile(userId, profile) {
     name: profile.name || '',
     phone: profile.phone || '',
     bio: profile.bio || '',
+    coverImage: profile.coverImage || null,
     nationality: profile.nationality || '',
     image: profile.image || null,
     updatedAt: serverTimestamp(),
@@ -134,6 +233,7 @@ export function travelerRecordToAppState(record, user) {
       bio: record?.bio || 'I love exploring new places!',
       nationality: record?.nationality || 'Filipino',
       image: record?.image || null,
+      coverImage: record?.coverImage || null,
       email: record?.email || user?.email || '',
       firstName: record?.firstName || splitName(name).firstName,
       lastName: record?.lastName || splitName(name).lastName,
@@ -148,9 +248,9 @@ function normalizePreferences(preferences = {}) {
   return {
     places: Array.isArray(preferences.places) ? preferences.places : [],
     activities: Array.isArray(preferences.activities) ? preferences.activities : [],
-    travelStyle: preferences.travelStyle || 'Solo',
-    budget: preferences.budget || 'Moderate',
-    duration: preferences.duration || 'One Day',
+    travelStyle: preferences.travelStyle || '',
+    budget: preferences.budget || '',
+    duration: preferences.duration || '',
   };
 }
 
@@ -231,6 +331,8 @@ async function completeSocialSignIn(credential, providerKey, profileOverrides = 
       nationality: '',
       image: socialProfile.image,
       preferences: normalizePreferences(),
+      role: 'tourist',
+      accountType: 'tourist',
       authProvider: providerKey,
       authProviders: providerIds,
       emailVerified: user.emailVerified,
@@ -248,6 +350,8 @@ async function completeSocialSignIn(credential, providerKey, profileOverrides = 
       authProvider: existing.authProvider || providerKey,
       authProviders: providerIds.length ? providerIds : existing.authProviders,
       emailVerified: user.emailVerified,
+      role: existing.role || 'tourist',
+      accountType: existing.accountType || 'tourist',
       updatedAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
     }));
@@ -255,6 +359,17 @@ async function completeSocialSignIn(credential, providerKey, profileOverrides = 
 
   const record = await loadTravelerRecord(user.uid);
   return { user, record };
+}
+
+function rethrowSocialProfileError(cause) {
+  const code = String(cause?.code || '').toLowerCase().replace(/_/g, '-');
+  if (code.includes('permission-denied') || /permission denied/i.test(cause?.message || '')) {
+    const error = new Error('Your sign-in succeeded, but BYANAGA could not access your traveler profile. Database permissions need to be updated. Please try again after this is fixed.');
+    error.code = 'auth/profile-permission-denied';
+    error.cause = cause;
+    throw error;
+  }
+  throw cause;
 }
 
 function buildSocialProfile(user, overrides = {}) {

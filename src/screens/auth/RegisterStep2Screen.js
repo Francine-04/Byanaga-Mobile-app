@@ -6,7 +6,7 @@ import AppButton from '../../components/AppButton';
 import CategoryChip from '../../components/CategoryChip';
 import Screen from '../../components/Screen';
 import StepProgress from '../../components/StepProgress';
-import { registerTraveler, travelerRecordToAppState } from '../../services/authService';
+import { registerTraveler, travelerRecordToAppState, saveTravelerPreferences } from '../../services/authService';
 import { buildRegistrationProfile, getFirebaseAuthMessage, validatePreferenceForm } from '../../utils/authValidation';
 
 const placeOptions = ['Nature', 'Mountains', 'Churches', 'Museums', 'Historical', 'Food', 'Shopping', 'Events', 'Photography', 'Parks', 'Family Friendly'];
@@ -16,14 +16,16 @@ const budgetOptions = ['Budget', 'Moderate', 'Luxury'];
 const durationOptions = ['Half Day', 'One Day', 'Weekend'];
 
 export default function RegisterStep2Screen({ navigation, route }) {
-  const { theme, preferences, setPreferences, setProfile, setIsGuestMode, setIsLoggedIn } = useApp();
+  const { theme, firebaseUser, setPreferences, setProfile, setIsGuestMode, setIsLoggedIn } = useApp();
+  const socialOnboarding = route.params?.socialOnboarding === true;
   const registration = route.params?.registration;
   const [draft, setDraft] = useState(() => ({
-    places: preferences.places || [],
-    activities: preferences.activities || [],
-    travelStyle: preferences.travelStyle || 'Solo',
-    budget: preferences.budget || 'Moderate',
-    duration: preferences.duration || 'One Day',
+    // Registration and first-time social onboarding must start unselected.
+    places: [],
+    activities: [],
+    travelStyle: '',
+    budget: '',
+    duration: '',
   }));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -46,7 +48,7 @@ export default function RegisterStep2Screen({ navigation, route }) {
   };
 
   const savePreferences = async () => {
-    if (missingRegistration) {
+    if (missingRegistration && !socialOnboarding) {
       setError('Please complete Step 1 before saving your preferences.');
       return;
     }
@@ -61,6 +63,13 @@ export default function RegisterStep2Screen({ navigation, route }) {
     setError('');
 
     try {
+      if (socialOnboarding) {
+        if (!firebaseUser || firebaseUser.isAnonymous) throw new Error('Please sign in again to save preferences.');
+        await saveTravelerPreferences(firebaseUser.uid, draft);
+        setPreferences(draft);
+        navigation.getParent()?.navigate('LocationPermission');
+        return;
+      }
       const profile = buildRegistrationProfile(registration);
       const result = await registerTraveler({
         email: profile.email,
@@ -86,7 +95,7 @@ export default function RegisterStep2Screen({ navigation, route }) {
     <Screen contentStyle={styles.content}>
       <AppHeader onBack={() => navigation.goBack()} rightIcon="information-circle-outline" rightLabel="Preference help" />
       <Text style={[styles.title, { color: theme.colors.text }]}>Travel Preferences</Text>
-      <Text style={[styles.step, { color: theme.colors.text }]}>Step 2 of 2</Text>
+      <Text style={[styles.step, { color: theme.colors.text }]}>{socialOnboarding ? 'Personalize your trip' : 'Step 2 of 2'}</Text>
       <StepProgress progress={0.82} style={styles.progress} />
       <PreferenceGroup
         title="What places do you enjoy?"

@@ -39,7 +39,14 @@ export default function AccommodationsScreen({ navigation }) {
         ))}
       </View>
       {filtered.map((accommodation) => (
-        <AccommodationCard key={accommodation.id} accommodation={accommodation} compact showActions={false} style={styles.fullCard} />
+        <AccommodationCard
+          key={accommodation.id}
+          accommodation={accommodation}
+          compact
+          showActions={false}
+          style={styles.fullCard}
+          onPress={accommodation.dashboardId ? () => navigation.navigate('EstablishmentDetails', { establishmentId: accommodation.dashboardId }) : undefined}
+        />
       ))}
     </Screen>
   );

@@ -30,7 +30,8 @@
       "@rnmapbox/maps",
       "@react-native-community/datetimepicker",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      ["expo-image-picker", { "photosPermission": "Allow BYANAGA to select your profile and background photos.", "cameraPermission": false, "microphonePermission": false }]
     ],
     "extra": {
       "eas": {

@@ -27,8 +27,8 @@ export default function TravelPreferencesScreen({ navigation }) {
     setSaving(true);
     setError('');
     try {
-      setPreferences(draft);
       if (firebaseUser?.uid && !firebaseUser.isAnonymous) await saveTravelerPreferences(firebaseUser.uid, draft);
+      setPreferences(draft);
       navigation.goBack();
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save preferences.');

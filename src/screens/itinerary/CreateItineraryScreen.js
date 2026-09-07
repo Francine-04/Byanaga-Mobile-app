@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
@@ -10,9 +10,25 @@ import DestinationSelectorModal from '../../components/DestinationSelectorModal'
 import Screen from '../../components/Screen';
 import TravelDateField from '../../components/TravelDateField';
 import { isAuthRequiredError } from '../../services/authService';
+import { generateItinerary } from '../../utils/generateItinerary';
+import { isTravelerAccessRequired, redirectToLogin } from '../../utils/guestAccess';
+import {
+  createDuplicateItineraryTitleError,
+  DUPLICATE_ITINERARY_TITLE_CODE,
+  findDuplicateItineraryTitle,
+  normalizeItineraryTitle,
+} from '../../utils/itineraryTitle';
 
 export default function CreateItineraryScreen({ navigation, route }) {
-  const { theme, destinations, firebaseUser, saveItinerary, setIsGuestMode, setIsLoggedIn } = useApp();
+  const { theme, destinations, restaurants, preferences, weather, isGuestMode, firebaseUser, authReady, savedTrips, saveItinerary } = useApp();
+  const [suggestionMessage, setSuggestionMessage] = useState('');
+  const generate = () => {
+    const result = generateItinerary({ destinations, restaurants, preferences: isGuestMode ? {} : preferences, weather, travelDate });
+    if (!result.days.length) { setFormError('No eligible Naga City places available. Please add places manually.'); return; }
+    setDays((current) => current.some((day) => day.places.length) ? [...current, ...result.days.map((day, index) => ({ ...day, id: `day-${current.length + index + 1}` }))] : result.days);
+    setSuggestionMessage(result.advice);
+    setFormError(null);
+  };
   const [tripId] = useState(() => route.params?.trip?.id || `trip-${Date.now()}`);
   const [tripName, setTripName] = useState(route.params?.trip?.name || 'My Naga City Trip');
   const [travelDate, setTravelDate] = useState(route.params?.trip?.travelDate || route.params?.trip?.date || '');
@@ -23,6 +39,16 @@ export default function CreateItineraryScreen({ navigation, route }) {
   const [selectorDayId, setSelectorDayId] = useState(null);
   const [savingStatus, setSavingStatus] = useState(null);
   const [formError, setFormError] = useState(null);
+  const [tripNameError, setTripNameError] = useState(null);
+  const accessRequired = isTravelerAccessRequired({ isGuestMode, firebaseUser, authReady });
+
+  const requestLogin = useCallback(() => {
+    redirectToLogin(navigation);
+  }, [navigation]);
+
+  useEffect(() => {
+    if (accessRequired) requestLogin();
+  }, [accessRequired, requestLogin]);
 
   const selectedDayLabel = useMemo(() => {
     const dayIndex = days.findIndex((day) => day.id === selectorDayId);
@@ -88,13 +114,18 @@ export default function CreateItineraryScreen({ navigation, route }) {
   };
 
   const saveTrip = async (status = 'Drafts') => {
-    if (!firebaseUser || firebaseUser.isAnonymous) {
-      setIsGuestMode(false);
-      setIsLoggedIn(false);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Auth', params: { screen: 'Login', params: { message: 'Log in to save your itinerary.' } } }],
-      });
+    if (accessRequired) {
+      requestLogin();
+      return;
+    }
+
+    const cleanTripName = normalizeItineraryTitle(tripName);
+    if (!cleanTripName) {
+      setTripNameError('Trip name is required.');
+      return;
+    }
+    if (findDuplicateItineraryTitle(savedTrips, cleanTripName, tripId)) {
+      setTripNameError(createDuplicateItineraryTitleError(cleanTripName).message);
       return;
     }
 
@@ -106,11 +137,12 @@ export default function CreateItineraryScreen({ navigation, route }) {
 
     setSavingStatus(status);
     setFormError(null);
+    setTripNameError(null);
 
     try {
       await saveItinerary({
         itineraryId: tripId,
-        tripName,
+        tripName: cleanTripName,
         travelDate: cleanDate,
         status,
         days,
@@ -119,12 +151,11 @@ export default function CreateItineraryScreen({ navigation, route }) {
       goToMain(navigation, 'Trips', { status, updatedAt: Date.now() });
     } catch (error) {
       if (isAuthRequiredError(error)) {
-        setIsGuestMode(false);
-        setIsLoggedIn(false);
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Auth', params: { screen: 'Login', params: { message: 'Log in to save your itinerary.' } } }],
-        });
+        requestLogin();
+        return;
+      }
+      if (error?.code === DUPLICATE_ITINERARY_TITLE_CODE) {
+        setTripNameError(error.message);
         return;
       }
       setFormError(error?.message || 'Unable to save itinerary.');
@@ -132,6 +163,10 @@ export default function CreateItineraryScreen({ navigation, route }) {
       setSavingStatus(null);
     }
   };
+
+  if (accessRequired) {
+    return <View style={[styles.protectedScreen, { backgroundColor: theme.colors.background }]} />;
+  }
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -142,8 +177,29 @@ export default function CreateItineraryScreen({ navigation, route }) {
           onRightPress={() => saveTrip('Upcoming')}
         />
         <Text style={[styles.title, { color: theme.colors.text }]}>Create Itinerary</Text>
-        <AppTextInput label="Trip Name" value={tripName} onChangeText={setTripName} style={styles.firstField} />
+        <AppTextInput
+          label="Trip Name"
+          value={tripName}
+          onChangeText={(value) => {
+            setTripName(value);
+            setTripNameError(null);
+          }}
+          onBlur={() => {
+            const cleanTripName = normalizeItineraryTitle(tripName);
+            setTripName(cleanTripName);
+            if (!cleanTripName) setTripNameError('Trip name is required.');
+            else if (findDuplicateItineraryTitle(savedTrips, cleanTripName, tripId)) {
+              setTripNameError(createDuplicateItineraryTitleError(cleanTripName).message);
+            }
+          }}
+          error={tripNameError}
+          autoCapitalize="words"
+          maxLength={60}
+          style={styles.firstField}
+        />
         <TravelDateField value={travelDate} onChange={setTravelDate} error={formError?.includes('Travel date') ? formError : null} />
+        <AppButton title="Generate Smart Itinerary" onPress={generate} disabled={!!savingStatus} variant="outline" />
+        {suggestionMessage ? <Text style={{ color: theme.colors.textMuted, marginVertical: 12 }}>{suggestionMessage}</Text> : null}
 
         {formError && !formError.includes('Travel date') ? (
           <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerSoft, borderColor: theme.colors.danger }]}>
@@ -287,6 +343,9 @@ function isDateValue(value) {
 }
 
 const styles = StyleSheet.create({
+  protectedScreen: {
+    flex: 1,
+  },
   content: {
     paddingTop: 10,
   },

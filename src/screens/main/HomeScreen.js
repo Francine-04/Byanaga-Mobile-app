@@ -4,40 +4,51 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
-import { rankByPopularity } from '../../utils/popularityScore';
+import { matchByPreferences } from '../../utils/preferenceMatching';
+import { isEventInCurrentWeek } from '../../utils/eventDate';
 import AccommodationCard from '../../components/AccommodationCard';
 import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
 import DestinationCard from '../../components/DestinationCard';
 import EventCard from '../../components/EventCard';
+import EstablishmentCard from '../../components/EstablishmentCard';
 import IconButton from '../../components/IconButton';
 import MapPlaceholder from '../../components/MapPlaceholder';
 import PlaceholderImage from '../../components/PlaceholderImage';
 import RestaurantCard from '../../components/RestaurantCard';
 import SectionHeader from '../../components/SectionHeader';
 import WeatherHeroCard from '../../components/WeatherHeroCard';
+import VoucherCard from '../../components/VoucherCard';
 
 export default function HomeScreen({ navigation }) {
   const {
     theme,
+    preferences,
     isGuestMode,
     profile,
     bookmarks,
     toggleBookmark,
     tourismEvents,
+    eventsSource,
+    eventsError,
     visibleNotifications,
     destinations,
     restaurants,
     accommodations,
+    establishments,
+    vouchers,
     heatZones,
     weather,
     weatherError,
     refreshWeather,
   } = useApp();
-  const featured = rankByPopularity(destinations).slice(0, 3);
-  const homeEvents = tourismEvents.slice(0, 4);
-  const unreadCount = visibleNotifications.filter((notification) => !notification.read).length;
   const [now, setNow] = useState(() => new Date());
+  const featured = matchByPreferences(isGuestMode ? {} : preferences, destinations, weather).slice(0, 3);
+  const homeEvents = useMemo(
+    () => tourismEvents.filter((event) => isEventInCurrentWeek(event, now)).slice(0, 4),
+    [now, tourismEvents]
+  );
+  const unreadCount = visibleNotifications.filter((notification) => !notification.read).length;
   const firstName = useMemo(() => (isGuestMode ? 'Tourist' : getFirstName(profile)), [isGuestMode, profile]);
   const greeting = useMemo(() => getTimeGreeting(now), [now]);
 
@@ -77,7 +88,7 @@ export default function HomeScreen({ navigation }) {
             ) : null}
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={() => navigation.navigate('Profile')}>
-            <PlaceholderImage label="Profile photo placeholder" icon="person" iconSize={24} aspectRatio={1} style={styles.avatar} />
+            <PlaceholderImage label="Profile photo" image={isGuestMode ? null : profile.image} icon="person" iconSize={24} aspectRatio={1} style={styles.avatar} />
           </Pressable>
         </View>
       </View>
@@ -117,8 +128,45 @@ export default function HomeScreen({ navigation }) {
           <QuickAccess icon="leaf-outline" label="Heatmap" onPress={() => navigation.navigate('Heatmap')} />
           <QuickAccess icon="clipboard-outline" label="Smart Itinerary" onPress={() => navigation.navigate('SmartItinerary')} />
           <QuickAccess icon="calendar-outline" label="Events" onPress={() => navigation.navigate('Events')} />
-          <QuickAccess icon="restaurant-outline" label="Restaurants" onPress={() => navigation.navigate('Restaurants')} />
+          <QuickAccess icon="storefront-outline" label="Establishments" onPress={() => navigation.navigate('Establishments')} />
         </View>
+
+        {vouchers.length ? (
+          <>
+            <SectionHeader title="Latest Offers" onPress={() => navigation.navigate('Offers')} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {vouchers.slice(0, 4).map((voucher) => (
+                <VoucherCard
+                  key={voucher.id}
+                  voucher={voucher}
+                  horizontal
+                  onPress={() => navigation.navigate('Offers', { voucherId: voucher.id })}
+                />
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+
+        <SectionHeader title="Local Establishments" onPress={() => navigation.navigate('Establishments')} />
+        {establishments.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {establishments.slice(0, 5).map((establishment) => (
+              <EstablishmentCard
+                key={establishment.id}
+                establishment={establishment}
+                onPress={() => navigation.navigate('EstablishmentDetails', { establishmentId: establishment.dashboardId })}
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <AppCard style={styles.emptyEstablishmentCard}>
+            <Ionicons name="storefront-outline" size={24} color={theme.colors.primary} />
+            <View style={styles.emptyEstablishmentCopy}>
+              <Text style={[styles.emptyEventTitle, { color: theme.colors.text }]}>No published establishments yet</Text>
+              <Text style={[styles.emptyEventText, { color: theme.colors.textMuted }]}>Approved profiles will appear here.</Text>
+            </View>
+          </AppCard>
+        )}
 
         <LinearGradient colors={theme.dark ? [theme.colors.surface, theme.colors.primarySoft] : [theme.colors.primarySoft, theme.colors.secondarySoft]} style={styles.exploreBanner}>
           <View style={styles.exploreCopy}>
@@ -165,11 +213,13 @@ export default function HomeScreen({ navigation }) {
         </AppCard>
 
         <SectionHeader title="Events This Week" onPress={() => navigation.navigate('Events')} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {homeEvents.map((event) => (
-            <EventCard key={event.id} event={event} showActions={false} />
-          ))}
-        </ScrollView>
+        {homeEvents.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {homeEvents.map((event) => (
+              <EventCard key={event.id} event={event} showActions={false} />
+            ))}
+          </ScrollView>
+        ) : <EventWeekState source={eventsSource} hasError={Boolean(eventsError)} />}
 
         <SectionHeader title="Popular Restaurants" onPress={() => navigation.navigate('Restaurants')} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -234,6 +284,26 @@ function QuickAccess({ icon, label, onPress }) {
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+function EventWeekState({ source, hasError }) {
+  const { theme } = useApp();
+  const loading = source === 'loading';
+  return (
+    <AppCard style={styles.emptyEventCard}>
+      <View style={[styles.emptyEventIcon, { backgroundColor: theme.colors.primarySoft }]}>
+        <Ionicons name={hasError ? 'cloud-offline-outline' : 'calendar-outline'} size={24} color={theme.colors.primary} />
+      </View>
+      <View style={styles.emptyEventCopy}>
+        <Text style={[styles.emptyEventTitle, { color: theme.colors.text }]}>
+          {loading ? 'Checking this week\'s events' : hasError ? 'Events are unavailable' : 'No published events this week'}
+        </Text>
+        <Text style={[styles.emptyEventText, { color: theme.colors.textMuted }]}>
+          {hasError ? 'Check your connection and try again.' : 'New tourism officer events will appear here.'}
+        </Text>
+      </View>
+    </AppCard>
   );
 }
 
@@ -452,6 +522,46 @@ const styles = StyleSheet.create({
   smartBody: {
     flex: 1,
     marginHorizontal: 12,
+  },
+  emptyEventCard: {
+    minHeight: 92,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  emptyEstablishmentCard: {
+    minHeight: 78,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  emptyEstablishmentCopy: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+  },
+  emptyEventIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyEventCopy: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+  },
+  emptyEventTitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  emptyEventText: {
+    marginTop: 3,
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   grid: {
     flexDirection: 'row',

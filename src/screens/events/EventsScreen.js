@@ -1,13 +1,15 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../../context/AppContext';
 import AppHeader, { goToDashboard } from '../../components/AppHeader';
+import EmptyState from '../../components/EmptyState';
 import EventCard from '../../components/EventCard';
 import Screen from '../../components/Screen';
 import OfflineState from '../../components/OfflineState';
 
 export default function EventsScreen({ navigation }) {
   const { theme, tourismEvents, eventsSource, eventsError, isOffline } = useApp();
+  const sourceLabel = eventsSource === 'dashboard' ? 'Live from tourism dashboard' : eventsSource === 'error' ? 'Connection unavailable' : 'Connecting to dashboard';
 
   if (isOffline) return (
     <Screen contentStyle={styles.content}>
@@ -24,18 +26,21 @@ export default function EventsScreen({ navigation }) {
           <Text style={[styles.title, { color: theme.colors.text }]}>Upcoming Events</Text>
           <View style={[styles.sourcePill, { backgroundColor: theme.colors.primarySoft }]}>
             <Text style={[styles.sourceText, { color: theme.colors.primary }]}>
-              {eventsSource === 'dashboard' ? 'Live from dashboard' : 'Sample events'}
+              {sourceLabel}
             </Text>
           </View>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="See all events" style={styles.textAction}>
-          <Text style={[styles.textActionLabel, { color: theme.colors.textMuted }]}>See All</Text>
-        </Pressable>
       </View>
-      {eventsError ? <Text style={[styles.fallbackText, { color: theme.colors.textMuted }]}>Showing saved samples for now.</Text> : null}
-      {tourismEvents.map((event) => (
+      {tourismEvents.length ? tourismEvents.map((event) => (
         <EventCard key={event.id} event={event} compact showActions={false} style={styles.fullCard} />
-      ))}
+      )) : (
+        <EmptyState
+          icon={eventsError ? 'cloud-offline-outline' : 'calendar-outline'}
+          title={eventsSource === 'loading' ? 'Loading events' : eventsError ? 'Unable to load events' : 'No published upcoming events'}
+          description={eventsError ? 'Check your connection and try again.' : 'Events published by the tourism officer will appear here.'}
+          style={styles.empty}
+        />
+      )}
     </Screen>
   );
 }
@@ -66,24 +71,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
   },
-  fallbackText: {
-    marginTop: -4,
-    marginBottom: 8,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  textAction: {
-    minHeight: 44,
-    minWidth: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  textActionLabel: {
-    fontSize: 11,
-    fontWeight: '900',
-  },
   fullCard: {
     width: '100%',
     marginBottom: 12,
+  },
+  empty: {
+    minHeight: 360,
   },
 });

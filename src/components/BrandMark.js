@@ -6,14 +6,15 @@ const logoSource = require('../../assets/Byanaga Logo.png');
 const letterSource = require('../../assets/Byanaga Letter.png');
 const LOGO_ASPECT_RATIO = 1402 / 1122;
 
-export default function BrandMark({ compact = false, size = 'regular', style }) {
+export default function BrandMark({ compact = false, size = 'regular', style, showTagline = true }) {
   const { theme } = useApp();
   const isCompact = compact || size === 'compact';
   const isHero = size === 'hero';
-  const symbolWidth = isHero ? 286 : isCompact ? 92 : 172;
-  const letterWidth = isHero ? 336 : isCompact ? 142 : 220;
-  const letterHeight = isHero ? 84 : isCompact ? 38 : 58;
-  const taglineSize = isHero ? 15 : isCompact ? 8 : 11;
+  const isLarge = size === 'large';
+  const symbolWidth = isHero ? 292 : isLarge ? 198 : isCompact ? 92 : 172;
+  const letterWidth = isHero ? 342 : isLarge ? 270 : isCompact ? 142 : 220;
+  const letterHeight = isHero ? 90 : isLarge ? 70 : isCompact ? 38 : 58;
+  const taglineSize = isHero ? 15 : isLarge ? 12 : isCompact ? 8 : 11;
 
   return (
     <View style={[styles.wrap, style]}>
@@ -25,6 +26,7 @@ export default function BrandMark({ compact = false, size = 'regular', style }) 
           {
             width: symbolWidth,
             height: symbolWidth / LOGO_ASPECT_RATIO,
+            marginBottom: isHero ? 14 : isLarge ? 12 : 20,
           },
           theme.dark && styles.darkSymbol,
         ]}
@@ -48,13 +50,13 @@ export default function BrandMark({ compact = false, size = 'regular', style }) 
           <Image source={letterSource} resizeMode="cover" style={styles.letterImage} />
         </View>
       </View>
-      <Text style={[styles.tagline, { fontSize: taglineSize, lineHeight: taglineSize + 7 }]}>
+      {showTagline ? <Text style={[styles.tagline, { fontSize: taglineSize, lineHeight: taglineSize + 7 }]}>
         <Text style={{ color: theme.brand.blue }}>EXPLORE.</Text>
         <Text> </Text>
         <Text style={{ color: theme.brand.yellow }}>CONNECT.</Text>
         <Text> </Text>
         <Text style={{ color: theme.brand.green }}>EXPERIENCE.</Text>
-      </Text>
+      </Text> : null}
     </View>
   );
 }

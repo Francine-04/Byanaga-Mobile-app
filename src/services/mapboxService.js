@@ -1,4 +1,5 @@
 import { NAGA_BOUNDS, NAGA_CENTER, isCoordinateInsideNagaCity, isValidCoordinate } from '../utils/nagaBoundary';
+import { getPlaceImage } from '../data/placeImages';
 
 const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 const MAPBOX_GEOCODING_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
@@ -136,6 +137,7 @@ function normalizeMapboxFeature(feature, selectedCategory, hasQuery) {
     longitude,
     category,
     categories: [category],
+    image: getPlaceImage({ name, category }),
     source: 'mapbox',
   };
 }

@@ -182,13 +182,16 @@ function normalizeWeather(weather) {
   const windSpeed = toNumber(next.windSpeed, fallbackWeather.windSpeed);
   const rainChance = toNumber(next.rainChance, fallbackWeather.rainChance);
   const rawLabel = String(next.temperatureLabel || '').trim();
+  const temperatureLabel = rawLabel
+    ? (/c$/i.test(rawLabel) ? rawLabel.replace(/\s*\u00B0?\s*c$/i, '\u00B0C') : `${rawLabel}\u00B0C`)
+    : `${temperature}\u00B0C`;
 
   return {
     ...next,
     city: next.city || 'Naga City',
     condition: next.condition || fallbackWeather.condition,
     temperature,
-    temperatureLabel: rawLabel ? rawLabel.replace(/\s*C$/i, '\u00B0C') : `${temperature}\u00B0C`,
+    temperatureLabel,
     humidity,
     windSpeed,
     rainChance,

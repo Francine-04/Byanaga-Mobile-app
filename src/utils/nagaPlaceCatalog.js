@@ -1,4 +1,6 @@
 import { nagaPlaces, findKnownPlace, normalizePlaceKey } from '../data/nagaPlaces';
+import { getPlaceImage } from '../data/placeImages';
+import { getBackendImage } from './backendImages';
 import { isCoordinateInsideNagaCity, isValidCoordinate } from './nagaBoundary';
 
 export const NAGA_PLACE_CATEGORIES = ['All', 'Nature', 'Church', 'Culture', 'Food', 'Shopping', 'Accommodation', 'Events'];
@@ -36,6 +38,7 @@ function normalizeKnownPlace(place) {
     category: place.category,
     latitude: place.latitude,
     longitude: place.longitude,
+    image: place.image || getPlaceImage({ name: place.name, category: place.category }),
     aliases: place.aliases,
     source: 'byanaga-naga-catalog',
   });
@@ -55,6 +58,7 @@ function normalizeCollectionPlace(item, type) {
     category,
     latitude: item?.latitude ?? item?.locationLat ?? item?.lat ?? knownPlace?.latitude,
     longitude: item?.longitude ?? item?.locationLng ?? item?.lng ?? knownPlace?.longitude,
+    image: getBackendImage(item, knownPlace?.image || getPlaceImage({ name, category })),
     aliases: knownPlace?.aliases,
     dashboardId: item?.dashboardId,
     mapboxPlaceId: item?.mapboxPlaceId,
@@ -92,6 +96,7 @@ function normalizePlace(place) {
     address: cleanText(place.address || 'Naga City, Camarines Sur'),
     latitude,
     longitude,
+    image: place.image,
     category,
     categories: [category],
     aliases: place.aliases || [],

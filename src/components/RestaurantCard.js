@@ -7,11 +7,11 @@ import AppCard from './AppCard';
 import PlaceholderImage from './PlaceholderImage';
 import Rating from './Rating';
 
-export default function RestaurantCard({ restaurant, compact = false, showActions = true, style }) {
+export default function RestaurantCard({ restaurant, compact = false, showActions = true, onPress, style }) {
   const { theme } = useApp();
 
   return (
-    <AppCard style={[styles.card, compact && styles.compactCard, style]}>
+    <AppCard accessibilityLabel={`Open ${restaurant.name}`} onPress={onPress} style={[styles.card, compact && styles.compactCard, style]}>
       <PlaceholderImage
         image={restaurant.image}
         label="Restaurant placeholder"

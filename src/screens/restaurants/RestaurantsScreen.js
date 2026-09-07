@@ -34,7 +34,14 @@ export default function RestaurantsScreen({ navigation }) {
         ))}
       </View>
       {filtered.map((restaurant) => (
-        <RestaurantCard key={restaurant.id} restaurant={restaurant} compact showActions={false} style={styles.fullCard} />
+        <RestaurantCard
+          key={restaurant.id}
+          restaurant={restaurant}
+          compact
+          showActions={false}
+          style={styles.fullCard}
+          onPress={restaurant.dashboardId ? () => navigation.navigate('EstablishmentDetails', { establishmentId: restaurant.dashboardId }) : undefined}
+        />
       ))}
     </Screen>
   );

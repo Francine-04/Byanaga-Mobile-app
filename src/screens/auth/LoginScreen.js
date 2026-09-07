@@ -11,6 +11,7 @@ import AppTextInput from '../../components/AppTextInput';
 import Screen from '../../components/Screen';
 import {
   loginTraveler,
+  signOutTraveler,
   signInWithSocialCredential,
   signInWithWebSocialProvider,
   travelerRecordToAppState,
@@ -33,8 +34,8 @@ const socialProviders = [
 ];
 
 export default function LoginScreen({ navigation, route }) {
-  const { theme, setIsGuestMode, setIsLoggedIn, setPreferences, setProfile } = useApp();
-  const [email, setEmail] = useState('');
+  const { theme, setIsGuestMode, setIsLoggedIn, setPreferences, setProfile, setSavedTrips } = useApp();
+  const [email, setEmail] = useState(normalizeEmail(route.params?.email || ''));
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -64,6 +65,10 @@ export default function LoginScreen({ navigation, route }) {
     }
   }, [route.params?.message]);
 
+  useEffect(() => {
+    if (route.params?.email) setEmail(normalizeEmail(route.params.email));
+  }, [route.params?.email]);
+
   const updateEmail = (value) => {
     setEmail(normalizeEmail(value));
     setErrors((current) => ({ ...current, email: '' }));
@@ -76,17 +81,33 @@ export default function LoginScreen({ navigation, route }) {
     setFormError('');
   };
 
-  const continueToLocation = (asGuest = false) => {
-    setIsGuestMode(asGuest);
-    setIsLoggedIn(true);
-    navigation.getParent()?.navigate('LocationPermission');
-  };
-
-  const continueToDashboard = useCallback(() => {
+  const continueAfterEmailLogin = useCallback((result) => {
     setIsGuestMode(false);
     setIsLoggedIn(true);
-    navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Main' }] });
+    if (result.createdTravelerRecord || !hasSavedPreferences(result.record?.preferences)) {
+      navigation.navigate('RegisterStep2', { socialOnboarding: true });
+    } else if (result.record?.onboardingCompletedAt) {
+      navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Main' }] });
+    } else {
+      navigation.getParent()?.navigate('LocationPermission');
+    }
   }, [navigation, setIsGuestMode, setIsLoggedIn]);
+
+  const continueAsGuest = async () => {
+    setLoading(true);
+    setFormError('');
+    try {
+      await signOutTraveler();
+      setSavedTrips([]);
+      setIsGuestMode(true);
+      setIsLoggedIn(true);
+      navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Main' }] });
+    } catch {
+      setFormError('Unable to start guest mode. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const completeSocialLogin = useCallback(async (result) => {
     const appState = travelerRecordToAppState(result.record, result.user);
@@ -96,8 +117,14 @@ export default function LoginScreen({ navigation, route }) {
     if (remember) await rememberTraveler({ uid: result.user.uid, email: result.user.email || appState.profile.email || '' });
     else await clearRememberedTraveler();
 
-    continueToDashboard();
-  }, [continueToDashboard, remember, setPreferences, setProfile]);
+    setIsGuestMode(false);
+    setIsLoggedIn(true);
+    if (result.record?.onboardingCompletedAt) {
+      navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Main' }] });
+    } else {
+      navigation.navigate('RegisterStep2', { socialOnboarding: true });
+    }
+  }, [navigation, remember, setPreferences, setProfile, setIsGuestMode, setIsLoggedIn]);
 
   const showSocialError = useCallback((error) => {
     const message = getSocialAuthMessage(error);
@@ -164,6 +191,13 @@ export default function LoginScreen({ navigation, route }) {
   };
 
   const handleSocialLogin = async (provider) => {
+    if (provider === 'apple') {
+      const message = 'Apple sign-in is coming soon. Please use Google, Facebook, or your email to continue.';
+      setFormError(message);
+      if (Platform.OS !== 'web') Alert.alert('Coming Soon', message);
+      return;
+    }
+
     setAuthenticatingProvider(provider);
     setPendingNativeProvider(null);
     setErrors({});
@@ -222,7 +256,7 @@ export default function LoginScreen({ navigation, route }) {
       const appState = travelerRecordToAppState(result.record, result.user);
       setProfile((current) => ({ ...current, ...appState.profile }));
       setPreferences((current) => ({ ...current, ...appState.preferences }));
-      continueToLocation(false);
+      continueAfterEmailLogin(result);
     } catch (error) {
       const message = getFirebaseAuthMessage(error);
       setFormError(message);
@@ -283,7 +317,7 @@ export default function LoginScreen({ navigation, route }) {
               </View>
               <Text style={[styles.optionText, { color: theme.colors.textMuted }]}>Remember Me</Text>
             </Pressable>
-            <Pressable accessibilityRole="button">
+            <Pressable accessibilityRole="button" accessibilityLabel="Forgot password" disabled={isBusy} onPress={() => navigation.navigate('ForgotPassword', { email })} style={{ minHeight: 44, justifyContent: 'center' }}>
               <Text style={[styles.link, { color: loginColors.primary }]}>Forgot Password?</Text>
             </Pressable>
           </View>
@@ -297,7 +331,7 @@ export default function LoginScreen({ navigation, route }) {
           />
           <AppButton
             title="Continue as Guest"
-            onPress={() => continueToLocation(true)}
+            onPress={continueAsGuest}
             variant="outline"
             disabled={isBusy}
             style={[styles.secondaryButton, { borderColor: loginColors.primary }]}
@@ -339,6 +373,16 @@ function getLoginColors(isDark) {
     primary: isDark ? '#4DB37A' : '#2E8B57',
     primarySoft: isDark ? '#183C2A' : '#E7F5ED',
   };
+}
+
+function hasSavedPreferences(preferences) {
+  return Boolean(
+    preferences?.places?.length &&
+    preferences?.activities?.length &&
+    preferences?.travelStyle &&
+    preferences?.budget &&
+    preferences?.duration
+  );
 }
 
 function getSocialColor(icon, theme) {

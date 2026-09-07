@@ -6,28 +6,49 @@ import { nationalityOptions } from '../../data/nationalities';
 import AppHeader, { goToDashboard, goToMain } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import AppTextInput from '../../components/AppTextInput';
-import PlaceholderImage from '../../components/PlaceholderImage';
+import ProfilePortrait from '../../components/ProfilePortrait';
 import Screen from '../../components/Screen';
 import SelectionSheet from '../../components/SelectionSheet';
 import SettingsRow from '../../components/SettingsRow';
 import { saveTravelerProfile } from '../../services/authService';
+import { saveProfilePhoto } from '../../services/profilePhotoService';
 
 export default function EditProfileScreen({ navigation }) {
-  const { firebaseUser, theme, profile, setProfile, preferences } = useApp();
+  const { firebaseUser, isGuestMode, setIsGuestMode, setIsLoggedIn, theme, profile, setProfile, preferences } = useApp();
   const [draft, setDraft] = useState(profile);
   const [nationalityOpen, setNationalityOpen] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [photoAssets, setPhotoAssets] = useState({});
   const update = (field) => (value) => { setDraft((current) => ({ ...current, [field]: value })); setError(''); };
   const preferenceCount = preferences.places.length + preferences.activities.length;
+  const handlePhotoSelected = (field, asset) => {
+    setPhotoAssets((current) => ({ ...current, [field]: asset }));
+    setDraft((current) => ({ ...current, [field]: asset.uri }));
+    setError('');
+  };
   const save = async () => {
+    if (isGuestMode || !firebaseUser || firebaseUser.isAnonymous) {
+      setIsGuestMode(false);
+      setIsLoggedIn(false);
+      navigation.reset({ index: 0, routes: [{ name: 'Auth', params: { screen: 'Login' } }] });
+      return;
+    }
     if (!draft.name.trim()) { setError('Please enter your full name.'); return; }
     Keyboard.dismiss();
     const nextProfile = { ...draft, name: draft.name.trim(), phone: draft.phone.trim(), bio: draft.bio.trim() };
     setSaving(true);
     try {
-      setProfile(nextProfile);
-      if (firebaseUser?.uid && !firebaseUser.isAnonymous) await saveTravelerProfile(firebaseUser.uid, nextProfile);
+      let savedProfile = nextProfile;
+      if (firebaseUser?.uid && !firebaseUser.isAnonymous) {
+        const uploadedPhotos = {};
+        for (const [field, asset] of Object.entries(photoAssets)) {
+          if (asset?.uri) uploadedPhotos[field] = await saveProfilePhoto(firebaseUser.uid, field, asset);
+        }
+        savedProfile = { ...nextProfile, ...uploadedPhotos };
+        await saveTravelerProfile(firebaseUser.uid, savedProfile);
+      }
+      setProfile(savedProfile);
       goToMain(navigation, 'Profile');
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save your profile.');
@@ -39,11 +60,7 @@ export default function EditProfileScreen({ navigation }) {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
       <Screen contentStyle={styles.content}>
         <AppHeader centered title="Edit Profile" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
-        <View style={styles.portrait}>
-          <PlaceholderImage label="Profile cover placeholder" showIcon={false} aspectRatio={3.8} style={[styles.cover, { backgroundColor: theme.colors.primarySoft }]} />
-          <PlaceholderImage label="Profile photo placeholder" image={draft.image} icon="person" iconSize={58} aspectRatio={1}
-            style={[styles.avatar, { borderColor: theme.colors.background }]} />
-        </View>
+        <ProfilePortrait navigation={navigation} profile={draft} disabled={saving} onPhotoSelected={handlePhotoSelected} />
         <AppTextInput label="Full Name" value={draft.name} onChangeText={update('name')} autoComplete="name" maxLength={80} error={error} />
         <AppTextInput label="Phone Number" value={draft.phone} onChangeText={update('phone')} keyboardType="phone-pad" autoComplete="tel" placeholder="Add phone number" maxLength={24} />
         <AppTextInput label="Bio" value={draft.bio} onChangeText={update('bio')} multiline maxLength={200} />

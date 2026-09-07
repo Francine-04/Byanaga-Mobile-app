@@ -1,50 +1,46 @@
-
-
-
-# dependencies
+# Dependencies
 node_modules/
 byanaga-app/
 
-# Expo
+# Expo and generated bundles
 .expo/
-dist/
-.expo-output/
+.expo-export*/
 .expo-output*/
-.expo-output-web/
-.expo-output-android/
-.expo-output-ios/
-.artifacts/
+dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Generated native projects
+/android/
+/ios/
 .kotlin/
+
+# Test and browser artifacts
+.artifacts/
+coverage/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.metro-health-check*
 *.orig.*
+*.tsbuildinfo
+
+# Native signing files
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
 *.pem
 
-# local env files
-.env
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
+# Operating system files
+.DS_Store
+Thumbs.db

@@ -1,3 +1,5 @@
+import { placeImages } from './placeImages';
+
 export const smartItineraryStops = [
   {
     id: 'stop-001',
@@ -5,7 +7,7 @@ export const smartItineraryStops = [
     title: 'Penafrancia Basilica',
     subtitle: 'Visit time: 1 hr',
     crowd: 'Moderate',
-    image: null,
+    image: placeImages.penafranciaBasilica,
   },
   {
     id: 'stop-002',
@@ -13,7 +15,7 @@ export const smartItineraryStops = [
     title: 'Museo del Seminario',
     subtitle: 'Visit time: 45 min',
     crowd: 'Low',
-    image: null,
+    image: placeImages.museo,
   },
   {
     id: 'stop-003',
@@ -21,7 +23,7 @@ export const smartItineraryStops = [
     title: 'Casa Mia Restaurant',
     subtitle: 'Lunch break',
     crowd: 'Busy',
-    image: null,
+    image: placeImages.diningPizza,
   },
   {
     id: 'stop-004',
@@ -29,7 +31,7 @@ export const smartItineraryStops = [
     title: 'Naga Ecological Park',
     subtitle: 'Visit time: 2 hrs',
     crowd: 'Low',
-    image: null,
+    image: placeImages.ecologyPark,
   },
 ];
 
@@ -40,7 +42,7 @@ export const trips = [
     date: 'Sample travel date',
     places: 4,
     status: 'Upcoming',
-    image: null,
+    image: placeImages.plazaQuinceMartires,
   },
   {
     id: 'trip-002',
@@ -48,6 +50,6 @@ export const trips = [
     date: 'Draft itinerary',
     places: 3,
     status: 'Drafts',
-    image: null,
+    image: placeImages.diningCoffee,
   },
 ];

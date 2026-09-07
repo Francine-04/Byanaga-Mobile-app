@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Linking } from 'react-native';
+import NotificationBanner from '../components/NotificationBanner';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useApp } from '../context/AppContext';
@@ -25,10 +27,16 @@ import DestinationPhotosScreen from '../screens/destination/DestinationPhotosScr
 import ReviewsScreen from '../screens/destination/ReviewsScreen';
 import NearbyPlacesScreen from '../screens/destination/NearbyPlacesScreen';
 import EmergencyContactsScreen from '../screens/main/EmergencyContactsScreen';
+import EstablishmentsScreen from '../screens/establishments/EstablishmentsScreen';
+import EstablishmentDetailsScreen from '../screens/establishments/EstablishmentDetailsScreen';
+import OffersScreen from '../screens/establishments/OffersScreen';
+import { parsePasswordResetLink } from '../utils/passwordResetAction';
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
+  const navigationRef = useRef(null);
+  const pendingPasswordReset = useRef(null);
   const { theme } = useApp();
   const navigationTheme = {
     dark: theme.dark,
@@ -48,8 +56,33 @@ export default function RootNavigator() {
     },
   };
 
+  const openPasswordReset = useCallback((url) => {
+    const action = parsePasswordResetLink(url);
+    if (!action) return;
+
+    if (!navigationRef.current?.isReady()) {
+      pendingPasswordReset.current = action;
+      return;
+    }
+
+    navigationRef.current.resetRoot(passwordResetNavigationState(action));
+  }, []);
+
+  useEffect(() => {
+    Linking.getInitialURL().then(openPasswordReset).catch(() => {});
+    const subscription = Linking.addEventListener('url', ({ url }) => openPasswordReset(url));
+    return () => subscription.remove();
+  }, [openPasswordReset]);
+
+  const handleNavigationReady = () => {
+    if (!pendingPasswordReset.current) return;
+    const action = pendingPasswordReset.current;
+    pendingPasswordReset.current = null;
+    navigationRef.current?.resetRoot(passwordResetNavigationState(action));
+  };
+
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme} onReady={handleNavigationReady}>
       <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Onboarding1" component={OnboardingScreen1} />
@@ -75,7 +108,24 @@ export default function RootNavigator() {
         <Stack.Screen name="NearbyPlaces" component={NearbyPlacesScreen} />
         <Stack.Screen name="NearbyRestaurants" component={NearbyPlacesScreen} />
         <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
+        <Stack.Screen name="Establishments" component={EstablishmentsScreen} />
+        <Stack.Screen name="EstablishmentDetails" component={EstablishmentDetailsScreen} />
+        <Stack.Screen name="Offers" component={OffersScreen} />
       </Stack.Navigator>
+      <NotificationBanner navigationRef={navigationRef} />
     </NavigationContainer>
   );
+}
+
+function passwordResetNavigationState(action) {
+  return {
+    index: 0,
+    routes: [{
+      name: 'Auth',
+      params: {
+        screen: 'ForgotPassword',
+        params: action,
+      },
+    }],
+  };
 }

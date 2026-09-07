@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { completeTravelerOnboarding } from '../../services/authService';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
@@ -10,10 +11,19 @@ import Screen from '../../components/Screen';
 
 export default function LocationPermissionScreen({ navigation }) {
   const { theme, setLocationPermission } = useApp();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const finish = (choice) => {
-    setLocationPermission(choice);
-    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+  const finish = async (choice) => {
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await completeTravelerOnboarding(choice);
+      setLocationPermission(choice);
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    } catch (cause) { setError(cause.message || 'Unable to save your choice. Please try again.'); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -41,8 +51,9 @@ export default function LocationPermissionScreen({ navigation }) {
           <Text style={[styles.privacyCopy, { color: theme.colors.textMuted }]}>We never display your exact location.</Text>
         </View>
       </AppCard>
-      <AppButton title="Allow Location" icon="navigate-outline" onPress={() => finish('allowed')} style={styles.button} />
-      <AppButton title="Skip" variant="outline" onPress={() => finish('skipped')} style={styles.skipButton} />
+      {error ? <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      <AppButton title={saving ? 'Saving...' : 'Allow Location'} disabled={saving} icon="navigate-outline" onPress={() => finish('allowed')} style={styles.button} />
+      <AppButton title="Skip" disabled={saving} variant="outline" onPress={() => finish('skipped')} style={styles.skipButton} />
     </Screen>
   );
 }

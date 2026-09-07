@@ -1,5 +1,7 @@
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { findKnownPlace } from '../data/nagaPlaces';
+import { getPlaceImage } from '../data/placeImages';
+import { getBackendImage, getBackendImages } from '../utils/backendImages';
 import { db } from './firebaseApp';
 
 export function subscribeToDashboardDestinations(onDestinations, onError) {
@@ -69,7 +71,7 @@ export function businessProfileToRestaurant(profile) {
     dashboardId: profile.dashboardId,
     name: profile.name,
     cuisine: profile.services[0] || 'Local',
-    image: null,
+    image: profile.image || getPlaceImage({ name: profile.name, category: 'Food' }),
     rating: 4.5,
     distance: 'Naga City',
     priceRange: profile.priceRange || 'Rate TBD',
@@ -90,7 +92,7 @@ export function businessProfileToAccommodation(profile) {
     dashboardId: profile.dashboardId,
     name: profile.name,
     amenities: profile.amenities.length ? profile.amenities.slice(0, 3).join(', ') : profile.categoryLabel,
-    image: null,
+    image: profile.image || getPlaceImage({ name: profile.name, category: 'Accommodation' }),
     rating: 4.5,
     distance: 'Naga City',
     price: profile.priceRange || 'Rate TBD',
@@ -115,7 +117,7 @@ export function businessProfileToDestination(profile) {
     dashboardId: profile.dashboardId,
     name: profile.name,
     category: businessCategoryToDestinationCategory(profile.category),
-    image: null,
+    image: profile.image || getPlaceImage({ name: profile.name, category: profile.category }),
     rating: 4.5,
     distance: formatDistanceFromCenter(latitude, longitude),
     estimatedVisitTime: 'Suggested stop',
@@ -129,6 +131,7 @@ export function businessProfileToDestination(profile) {
     tags: [profile.categoryLabel, ...profile.services].filter(Boolean).slice(0, 4),
     latitude,
     longitude,
+    photos: imageGallery(profile.imageUrls, profile.image),
     source: 'dashboard',
   };
 }
@@ -145,7 +148,8 @@ function normalizeDestination(id, data = {}) {
     dashboardId: id,
     name: data.name || knownPlace?.name || 'Untitled Destination',
     category: destinationCategoryLabel(data.category || knownPlace?.category),
-    image: null,
+    image: getBackendImage(data, knownPlace?.image || getPlaceImage({ name: data.name || knownPlace?.name, category: data.category || knownPlace?.category })),
+    imageUrls: getBackendImages(data),
     rating: rating > 0 ? Number(rating.toFixed(1)) : 4.5,
     distance: formatDistanceFromCenter(latitude, longitude),
     estimatedVisitTime: data.estimatedVisitTime || 'Suggested stop',
@@ -163,6 +167,7 @@ function normalizeDestination(id, data = {}) {
     ratingCount: Number(data.ratingCount || 0),
     isActive: data.isActive !== false,
     cluster: data.cluster || 'unrated',
+    photos: imageGallery(getBackendImages(data), getBackendImage(data, knownPlace?.image || getPlaceImage({ name: data.name || knownPlace?.name, category: data.category || knownPlace?.category }))),
     source: 'dashboard',
   };
 }
@@ -178,7 +183,8 @@ function normalizeAccommodation(id, data = {}) {
     dashboardId: id,
     name: data.name || 'Untitled Stay',
     amenities: typeLabel,
-    image: null,
+    image: getBackendImage(data, knownPlace?.image || getPlaceImage({ name: data.name || knownPlace?.name, category: 'Accommodation' })),
+    imageUrls: getBackendImages(data),
     rating: 4.5,
     distance: 'Naga City',
     price: data.priceRange || 'Rate TBD',
@@ -221,7 +227,8 @@ function normalizeBusinessProfile(id, data = {}) {
     isOpen: data.isOpen !== false,
     latitude,
     longitude,
-    image: null,
+    image: getBackendImage(data, knownPlace?.image || getPlaceImage({ name: data.businessName || data.name, category })),
+    imageUrls: getBackendImages(data),
     source: 'dashboard',
   };
 }
@@ -302,6 +309,15 @@ function formatPriceRange(min, max) {
   if (!low && !high) return 'Rate TBD';
   if (low && high && low !== high) return `PHP ${Math.round(low)} - PHP ${Math.round(high)}`;
   return `PHP ${Math.round(low || high)}`;
+}
+
+function imageGallery(images, fallback) {
+  const sources = Array.from(new Set([...(images || []), fallback].filter(Boolean)));
+  return sources.map((image, index) => ({
+    id: `backend-photo-${index}`,
+    category: index === 0 ? 'Exterior' : 'Nearby',
+    image,
+  }));
 }
 
 function formatOperatingHours(hours) {

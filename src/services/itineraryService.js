@@ -1,4 +1,10 @@
-import { equalTo, onValue, orderByChild, push, query, ref, remove, serverTimestamp, set, update } from 'firebase/database';
+import { equalTo, get, onValue, orderByChild, push, query, ref, remove, serverTimestamp, set, update } from 'firebase/database';
+import { getPlaceImage } from '../data/placeImages';
+import {
+  createDuplicateItineraryTitleError,
+  findDuplicateItineraryTitle,
+  normalizeItineraryTitle,
+} from '../utils/itineraryTitle';
 import { realtimeDb } from './firebaseApp';
 import { ensureAuthenticatedUser } from './authService';
 
@@ -6,11 +12,18 @@ const ITINERARIES_PATH = 'itineraries';
 
 export async function saveItineraryToDatabase({ itineraryId, tripName, travelDate, status = 'Drafts', days = [], existingCreatedAt }) {
   const user = await ensureAuthenticatedUser();
+  const cleanTripName = normalizeItineraryTitle(tripName);
+  if (!cleanTripName) {
+    throw new Error('Trip name is required.');
+  }
+
+  await assertUniqueItineraryTitle(user.uid, cleanTripName, itineraryId);
+
   const itineraryRef = itineraryId ? ref(realtimeDb, `${ITINERARIES_PATH}/${itineraryId}`) : push(ref(realtimeDb, ITINERARIES_PATH));
   const id = itineraryRef.key;
   const record = {
     userId: user.uid,
-    tripName: String(tripName || 'Untitled Trip').trim() || 'Untitled Trip',
+    tripName: cleanTripName,
     travelDate: travelDate || '',
     status,
     createdAt: existingCreatedAt || serverTimestamp(),
@@ -36,7 +49,7 @@ export function subscribeToUserItineraries(userId, onTrips, onError) {
     return () => {};
   }
 
-  const userTripsQuery = query(ref(realtimeDb, ITINERARIES_PATH), orderByChild('userId'), equalTo(userId));
+  const userTripsQuery = createUserItinerariesQuery(userId);
 
   return onValue(
     userTripsQuery,
@@ -54,6 +67,8 @@ export function subscribeToUserItineraries(userId, onTrips, onError) {
 }
 
 export async function updateItineraryStatusInDatabase(itineraryId, status) {
+  await ensureAuthenticatedUser();
+
   if (!itineraryId) {
     throw new Error('Missing itinerary ID.');
   }
@@ -65,6 +80,8 @@ export async function updateItineraryStatusInDatabase(itineraryId, status) {
 }
 
 export async function deleteItineraryFromDatabase(itineraryId) {
+  await ensureAuthenticatedUser();
+
   if (!itineraryId) {
     throw new Error('Missing itinerary ID.');
   }
@@ -74,6 +91,7 @@ export async function deleteItineraryFromDatabase(itineraryId) {
 
 export function itineraryRecordToTrip(id, data = {}) {
   const days = realtimeDatabaseDaysToScreen(data.days);
+  const firstPlace = days.flatMap((day) => day.places || [])[0];
 
   return {
     id,
@@ -84,7 +102,7 @@ export function itineraryRecordToTrip(id, data = {}) {
     status: data.status || 'Drafts',
     days,
     places: days.reduce((total, day) => total + day.places.length, 0),
-    image: null,
+    image: firstPlace?.image || getPlaceImage({ name: firstPlace?.placeName || data.tripName, category: firstPlace?.category }),
     createdAt: data.createdAt || null,
     updatedAt: data.updatedAt || null,
   };
@@ -98,6 +116,23 @@ function daysToRealtimeDatabase(days) {
     };
     return payload;
   }, {});
+}
+
+async function assertUniqueItineraryTitle(userId, title, currentItineraryId) {
+  const snapshot = await get(createUserItinerariesQuery(userId));
+  const trips = [];
+
+  snapshot.forEach((child) => {
+    trips.push({ id: child.key, tripName: child.val()?.tripName });
+  });
+
+  if (findDuplicateItineraryTitle(trips, title, currentItineraryId || null)) {
+    throw createDuplicateItineraryTitleError(title);
+  }
+}
+
+function createUserItinerariesQuery(userId) {
+  return query(ref(realtimeDb, ITINERARIES_PATH), orderByChild('userId'), equalTo(userId));
 }
 
 function placesToRealtimeDatabase(places) {

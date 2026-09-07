@@ -11,6 +11,7 @@ import AppButton from './AppButton';
 import AppTextInput from './AppTextInput';
 import CategoryChip from './CategoryChip';
 import MapboxLocationPreview from './MapboxLocationPreview';
+import PlaceholderImage from './PlaceholderImage';
 import VisitTimeField from './VisitTimeField';
 
 const filters = ['All', 'Nature', 'Church', 'Culture', 'Food', 'Shopping', 'Accommodation', 'Events'];
@@ -223,9 +224,13 @@ function PlaceResult({ place, selected, onPress }) {
         },
       ]}
     >
-      <View style={[styles.resultIcon, { backgroundColor: selected ? theme.colors.primary : theme.colors.surfaceMuted }]}>
-        <Ionicons name="location-outline" size={20} color={selected ? '#FFFFFF' : theme.colors.primary} />
-      </View>
+      <PlaceholderImage
+        image={place.image}
+        label={`${place.name} image`}
+        aspectRatio={1}
+        showIcon={false}
+        style={styles.resultImage}
+      />
       <View style={styles.resultBody}>
         <Text style={[styles.resultName, { color: theme.colors.text }]} numberOfLines={1}>
           {place.name}
@@ -364,6 +369,11 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  resultImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 15,
   },
   resultBody: {
     flex: 1,

@@ -95,6 +95,9 @@ export function getFirebaseAuthMessage(error) {
   if (code.includes('invalid-email')) return 'Enter a valid Gmail address.';
   if (code.includes('invalid-credential') || code.includes('user-not-found') || code.includes('wrong-password')) return incorrectLoginMessage;
   if (code.includes('weak-password')) return passwordRuleText;
+  if (code.includes('expired-action-code')) return 'This password reset link has expired. Request a new link and try again.';
+  if (code.includes('invalid-action-code')) return 'This password reset link is invalid or has already been used. Request a new link and try again.';
+  if (code.includes('missing-action-code')) return 'The password reset link is incomplete. Request a new link and try again.';
   if (code.includes('too-many-requests')) return 'Too many attempts. Please wait a moment and try again.';
   if (code.includes('network-request-failed')) return 'Check your internet connection and try again.';
   if (code.includes('operation-not-allowed')) return 'Email and password sign-in is not enabled in Firebase.';

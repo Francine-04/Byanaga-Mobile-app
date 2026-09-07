@@ -4,9 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo, { useNetInfo } from '@react-native-community/netinfo';
 import { accommodations as fallbackAccommodations } from '../data/accommodations';
 import { destinations as fallbackDestinations } from '../data/destinations';
-import { events as fallbackEvents } from '../data/events';
 import { heatZones as fallbackHeatZones } from '../data/heatZones';
-import { notifications as initialNotifications } from '../data/notifications';
+import useNotificationFeed from '../hooks/useNotificationFeed';
 import { restaurants as fallbackRestaurants } from '../data/restaurants';
 import {
   businessProfileToAccommodation,
@@ -17,9 +16,14 @@ import {
   subscribeToDashboardDestinations,
   subscribeToDashboardVisitors,
 } from '../services/dashboardDataService';
-import { createEventNotification, subscribeToDashboardEvents } from '../services/eventsService';
+import { subscribeToDashboardEvents } from '../services/eventsService';
+import {
+  subscribeToEstablishmentGallery,
+  subscribeToEstablishmentMenu,
+  subscribeToEstablishmentPosts,
+} from '../services/establishmentContentService';
 import { firebaseProjectId } from '../services/firebaseApp';
-import { loadTravelerRecord, subscribeToAuthState, travelerRecordToAppState } from '../services/authService';
+import { AUTH_REQUIRED_ERROR_CODE, loadTravelerRecord, subscribeToAuthState, travelerRecordToAppState } from '../services/authService';
 import {
   deleteItineraryFromDatabase,
   saveItineraryToDatabase,
@@ -29,6 +33,7 @@ import {
 import { getRememberedTraveler } from '../services/rememberMeService';
 import { fallbackWeather, fetchNagaWeather } from '../services/weatherService';
 import { makeTheme } from '../theme/theme';
+import { attachEstablishmentContent } from '../utils/establishmentContent';
 import { deriveHeatZones } from '../utils/heatmapData';
 
 const AppContext = createContext(null);
@@ -45,19 +50,21 @@ export function AppProvider({ children }) {
   const [preferences, setPreferences] = useState({
     places: [],
     activities: [],
-    travelStyle: 'Solo',
-    budget: 'Moderate',
-    duration: 'One Day',
+    travelStyle: '',
+    budget: '',
+    duration: '',
   });
   const [bookmarks, setBookmarks] = useState([]);
   const [savedTrips, setSavedTrips] = useState([]);
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [tourismEvents, setTourismEvents] = useState(fallbackEvents);
-  const [eventsSource, setEventsSource] = useState('mock');
+  const [tourismEvents, setTourismEvents] = useState([]);
+  const [eventsSource, setEventsSource] = useState('loading');
   const [eventsError, setEventsError] = useState(null);
   const [liveDestinations, setLiveDestinations] = useState([]);
   const [liveAccommodations, setLiveAccommodations] = useState([]);
   const [businessProfiles, setBusinessProfiles] = useState([]);
+  const [establishmentPosts, setEstablishmentPosts] = useState([]);
+  const [establishmentGallery, setEstablishmentGallery] = useState([]);
+  const [establishmentMenuItems, setEstablishmentMenuItems] = useState([]);
   const [visitorRecords, setVisitorRecords] = useState([]);
   const [backendErrors, setBackendErrors] = useState({});
   const [itineraryError, setItineraryError] = useState(null);
@@ -74,7 +81,7 @@ export function AppProvider({ children }) {
     travelAlerts: true,
     eventUpdates: true,
     weatherUpdates: false,
-    promotions: false,
+    promotions: true,
     anonymousLocation: false,
     dataSharing: false,
     language: 'English',
@@ -142,12 +149,10 @@ export function AppProvider({ children }) {
       if (!mounted || !raw) return;
       const saved = JSON.parse(raw);
       if (!saved || typeof saved !== 'object') return;
-      if (saved.profile && typeof saved.profile.name === 'string') setProfile((current) => ({ ...current, ...saved.profile }));
       if (saved.settings && typeof saved.settings === 'object') setSettings((current) => ({ ...current, ...saved.settings }));
       if (saved.preferences && Array.isArray(saved.preferences.places) && Array.isArray(saved.preferences.activities)) setPreferences((current) => ({ ...current, ...saved.preferences }));
       if (['light', 'dark', 'system'].includes(saved.themePreference)) setThemePreference(saved.themePreference);
       if (Array.isArray(saved.bookmarks)) setBookmarks(saved.bookmarks.filter((id) => typeof id === 'string'));
-      if (Array.isArray(saved.savedTrips)) setSavedTrips(saved.savedTrips.filter((trip) => trip && typeof trip.id === 'string'));
     }).catch(() => {
       if (mounted) setStorageError('Unable to restore saved preferences on this device.');
     }).finally(() => {
@@ -159,12 +164,12 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!storageReady) return;
     const timer = setTimeout(() => {
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, settings, preferences, themePreference, bookmarks, savedTrips }))
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, settings, preferences, themePreference, bookmarks }))
         .then(() => setStorageError(null))
         .catch(() => setStorageError('Changes could not be saved on this device.'));
     }, 150);
     return () => clearTimeout(timer);
-  }, [storageReady, profile, settings, preferences, themePreference, bookmarks, savedTrips]);
+  }, [storageReady, profile, settings, preferences, themePreference, bookmarks]);
 
   const updateBackendError = useCallback((key, message) => {
     setBackendErrors((current) => {
@@ -180,23 +185,15 @@ export function AppProvider({ children }) {
       (liveEvents) => {
         setEventsError(null);
         updateBackendError('events', null);
-
-        if (!liveEvents.length) {
-          setTourismEvents(fallbackEvents);
-          setEventsSource('mock');
-          return;
-        }
-
         setTourismEvents(liveEvents);
         setEventsSource('dashboard');
-        setNotifications((current) => mergeEventNotifications(current, liveEvents));
       },
       (error) => {
         const message = error?.message || 'Unable to load dashboard events.';
         setEventsError(message);
         updateBackendError('events', message);
-        setTourismEvents(fallbackEvents);
-        setEventsSource('mock');
+        setTourismEvents([]);
+        setEventsSource('error');
       }
     );
 
@@ -233,6 +230,27 @@ export function AppProvider({ children }) {
         },
         (error) => updateBackendError('visitors', error?.message || 'Unable to load dashboard visitor records.')
       ),
+      subscribeToEstablishmentPosts(
+        (items) => {
+          setEstablishmentPosts(items);
+          updateBackendError('establishmentPosts', null);
+        },
+        (error) => updateBackendError('establishmentPosts', error?.message || 'Unable to load establishment updates.')
+      ),
+      subscribeToEstablishmentGallery(
+        (items) => {
+          setEstablishmentGallery(items);
+          updateBackendError('establishmentGallery', null);
+        },
+        (error) => updateBackendError('establishmentGallery', error?.message || 'Unable to load establishment photos.')
+      ),
+      subscribeToEstablishmentMenu(
+        (items) => {
+          setEstablishmentMenuItems(items);
+          updateBackendError('establishmentMenu', null);
+        },
+        (error) => updateBackendError('establishmentMenu', error?.message || 'Unable to load establishment menu items.')
+      ),
     ];
 
     return () => {
@@ -243,7 +261,9 @@ export function AppProvider({ children }) {
   }, [updateBackendError]);
 
   useEffect(() => {
-    if (!firebaseUser?.uid) {
+    setSavedTrips([]);
+
+    if (!firebaseUser?.uid || firebaseUser.isAnonymous || isGuestMode) {
       return undefined;
     }
 
@@ -262,7 +282,7 @@ export function AppProvider({ children }) {
     );
 
     return unsubscribe;
-  }, [firebaseUser?.uid, updateBackendError]);
+  }, [firebaseUser?.uid, firebaseUser?.isAnonymous, isGuestMode, updateBackendError]);
 
   const refreshWeather = useCallback(async () => {
     try {
@@ -287,11 +307,36 @@ export function AppProvider({ children }) {
   const colorScheme = themePreference === 'system' ? systemScheme || 'light' : themePreference;
   const theme = useMemo(() => makeTheme(colorScheme), [colorScheme]);
 
+  const approvedEstablishmentIds = useMemo(
+    () => new Set(businessProfiles.map((profile) => profile.dashboardId).filter(Boolean)),
+    [businessProfiles]
+  );
+  const visibleEstablishmentPosts = useMemo(() => establishmentPosts
+    .filter((post) => approvedEstablishmentIds.has(post.establishmentId))
+    .map((post) => ({
+      ...post,
+      establishmentName: businessProfiles.find((profile) => profile.dashboardId === post.establishmentId)?.name || '',
+    })), [approvedEstablishmentIds, businessProfiles, establishmentPosts]);
+  const visibleEstablishmentGallery = useMemo(
+    () => establishmentGallery.filter((item) => approvedEstablishmentIds.has(item.establishmentId)),
+    [approvedEstablishmentIds, establishmentGallery]
+  );
+  const visibleEstablishmentMenuItems = useMemo(
+    () => establishmentMenuItems.filter((item) => approvedEstablishmentIds.has(item.establishmentId)),
+    [approvedEstablishmentIds, establishmentMenuItems]
+  );
+  const establishmentProfiles = useMemo(() => attachEstablishmentContent({
+    profiles: businessProfiles,
+    posts: visibleEstablishmentPosts,
+    gallery: visibleEstablishmentGallery,
+    menuItems: visibleEstablishmentMenuItems,
+  }), [businessProfiles, visibleEstablishmentGallery, visibleEstablishmentMenuItems, visibleEstablishmentPosts]);
+
   const businessDestinations = useMemo(() => (
-    businessProfiles
+    establishmentProfiles
       .filter((profile) => ['attraction', 'shop', 'entertainment'].includes(profile.category))
       .map(businessProfileToDestination)
-  ), [businessProfiles]);
+  ), [establishmentProfiles]);
 
   const destinations = useMemo(() => {
     const merged = dedupeByName([...liveDestinations, ...businessDestinations]);
@@ -299,10 +344,10 @@ export function AppProvider({ children }) {
   }, [businessDestinations, liveDestinations]);
 
   const businessRestaurants = useMemo(() => (
-    businessProfiles
+    establishmentProfiles
       .filter((profile) => profile.category === 'restaurant')
       .map(businessProfileToRestaurant)
-  ), [businessProfiles]);
+  ), [establishmentProfiles]);
 
   const restaurants = useMemo(() => {
     const merged = dedupeByName(businessRestaurants);
@@ -310,10 +355,10 @@ export function AppProvider({ children }) {
   }, [businessRestaurants]);
 
   const businessStays = useMemo(() => (
-    businessProfiles
+    establishmentProfiles
       .filter((profile) => ['hotel', 'resort'].includes(profile.category))
       .map(businessProfileToAccommodation)
-  ), [businessProfiles]);
+  ), [establishmentProfiles]);
 
   const accommodations = useMemo(() => {
     const merged = dedupeByName([...liveAccommodations, ...businessStays]);
@@ -324,6 +369,26 @@ export function AppProvider({ children }) {
     deriveHeatZones({ visitors: visitorRecords, destinations, events: tourismEvents })
   ), [destinations, tourismEvents, visitorRecords]);
   const heatZones = derivedHeatZones.length ? derivedHeatZones : fallbackHeatZones;
+  const notificationZones = useMemo(() => deriveHeatZones({
+    visitors: visitorRecords,
+    destinations: [...liveDestinations, ...businessDestinations],
+    events: eventsSource === 'dashboard' ? tourismEvents : [],
+  }), [visitorRecords, liveDestinations, businessDestinations, eventsSource, tourismEvents]);
+  const { notifications, vouchers: liveVouchers, markAllNotificationsRead, markNotificationsRead, notificationError } = useNotificationFeed({
+    userId: !isGuestMode && firebaseUser && !firebaseUser.isAnonymous ? firebaseUser.uid : null,
+    events: eventsSource === 'dashboard' ? tourismEvents : [],
+    trips: !isGuestMode && firebaseUser ? savedTrips.filter((trip) => trip.userId === firebaseUser.uid) : [],
+    zones: notificationZones,
+    establishmentPosts: visibleEstablishmentPosts,
+  });
+  const vouchers = useMemo(
+    () => liveVouchers.filter((voucher) => !voucher.establishmentId || approvedEstablishmentIds.has(voucher.establishmentId)),
+    [approvedEstablishmentIds, liveVouchers]
+  );
+  const establishments = useMemo(() => establishmentProfiles.map((profile) => ({
+    ...profile,
+    vouchers: vouchers.filter((voucher) => voucher.establishmentId === profile.dashboardId),
+  })), [establishmentProfiles, vouchers]);
 
   const backendStatus = useMemo(() => ({
     projectId: firebaseProjectId,
@@ -331,6 +396,8 @@ export function AppProvider({ children }) {
     destinations: liveDestinations.length || businessDestinations.length ? 'dashboard' : 'mock',
     restaurants: businessRestaurants.length ? 'dashboard' : 'mock',
     accommodations: liveAccommodations.length || businessStays.length ? 'dashboard' : 'mock',
+    establishments: establishments.length ? 'dashboard' : 'empty',
+    offers: vouchers.length ? 'dashboard' : 'empty',
     heatmap: derivedHeatZones.length ? 'dashboard' : 'mock',
     weather: weather.source,
   }), [
@@ -341,10 +408,13 @@ export function AppProvider({ children }) {
     eventsSource,
     liveAccommodations.length,
     liveDestinations.length,
+    establishments.length,
+    vouchers.length,
     weather.source,
   ]);
 
   const visibleNotifications = useMemo(() => notifications.filter((notification) => {
+    if (notification.id.startsWith('event-') && !settings.eventUpdates) return false;
     const preference = { Events: 'eventUpdates', Weather: 'weatherUpdates', Promotions: 'promotions', 'Travel Reminders': 'travelAlerts' }[notification.category];
     return !preference || settings[preference];
   }), [notifications, settings]);
@@ -355,14 +425,12 @@ export function AppProvider({ children }) {
     );
   }, []);
 
-  const markAllNotificationsRead = useCallback(() => {
-    setNotifications((items) => items.map((item) => ({ ...item, read: true })));
-  }, []);
 
   const retryConnection = useCallback(() => NetInfo.refresh(), []);
 
   const saveItinerary = useCallback(async (draft) => {
     try {
+      requireRegisteredTraveler(isGuestMode);
       const result = await saveItineraryToDatabase(draft);
       setItineraryError(null);
       setSavedTrips((current) => [result.trip, ...current.filter((trip) => trip.id !== result.trip.id)]);
@@ -374,31 +442,37 @@ export function AppProvider({ children }) {
       nextError.code = error?.code;
       throw nextError;
     }
-  }, []);
+  }, [isGuestMode]);
 
   const deleteItinerary = useCallback(async (itineraryId) => {
     try {
+      requireRegisteredTraveler(isGuestMode);
       await deleteItineraryFromDatabase(itineraryId);
       setItineraryError(null);
       setSavedTrips((current) => current.filter((trip) => trip.id !== itineraryId));
     } catch (error) {
       const message = error?.message || 'Unable to delete itinerary.';
       setItineraryError(message);
-      throw new Error(message);
+      const nextError = new Error(message);
+      nextError.code = error?.code;
+      throw nextError;
     }
-  }, []);
+  }, [isGuestMode]);
 
   const updateItineraryStatus = useCallback(async (itineraryId, status) => {
     try {
+      requireRegisteredTraveler(isGuestMode);
       await updateItineraryStatusInDatabase(itineraryId, status);
       setItineraryError(null);
       setSavedTrips((current) => current.map((trip) => (trip.id === itineraryId ? { ...trip, status } : trip)));
     } catch (error) {
       const message = error?.message || 'Unable to update itinerary.';
       setItineraryError(message);
-      throw new Error(message);
+      const nextError = new Error(message);
+      nextError.code = error?.code;
+      throw nextError;
     }
-  }, []);
+  }, [isGuestMode]);
 
   const value = useMemo(
     () => ({
@@ -433,6 +507,11 @@ export function AppProvider({ children }) {
       destinations,
       restaurants,
       accommodations,
+      establishments,
+      establishmentPosts: visibleEstablishmentPosts,
+      establishmentGallery: visibleEstablishmentGallery,
+      establishmentMenuItems: visibleEstablishmentMenuItems,
+      vouchers,
       heatZones,
       visitorRecords,
       tourismEvents,
@@ -440,7 +519,8 @@ export function AppProvider({ children }) {
       eventsError,
       notifications,
       visibleNotifications,
-      setNotifications,
+      notificationError,
+      markNotificationsRead,
       markAllNotificationsRead,
       weather,
       weatherError,
@@ -472,6 +552,11 @@ export function AppProvider({ children }) {
       destinations,
       restaurants,
       accommodations,
+      establishments,
+      visibleEstablishmentPosts,
+      visibleEstablishmentGallery,
+      visibleEstablishmentMenuItems,
+      vouchers,
       heatZones,
       visitorRecords,
       tourismEvents,
@@ -479,6 +564,8 @@ export function AppProvider({ children }) {
       eventsError,
       notifications,
       visibleNotifications,
+      notificationError,
+      markNotificationsRead,
       markAllNotificationsRead,
       weather,
       weatherError,
@@ -491,14 +578,11 @@ export function AppProvider({ children }) {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
-function mergeEventNotifications(current, liveEvents) {
-  const existingIds = new Set(current.map((notification) => notification.id));
-  const incoming = liveEvents
-    .slice(0, 5)
-    .map(createEventNotification)
-    .filter((notification) => !existingIds.has(notification.id));
-
-  return incoming.length ? [...incoming, ...current] : current;
+function requireRegisteredTraveler(isGuestMode) {
+  if (!isGuestMode) return;
+  const error = new Error('Log in to create, save, or edit an itinerary.');
+  error.code = AUTH_REQUIRED_ERROR_CODE;
+  throw error;
 }
 
 function dedupeByName(items) {

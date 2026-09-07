@@ -1,23 +1,21 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../../context/AppContext';
 import AppButton from '../../components/AppButton';
-import MapPlaceholder from '../../components/MapPlaceholder';
-import PlaceholderImage from '../../components/PlaceholderImage';
 
 export default function OnboardingLayout({
   title,
   description,
   imageLabel,
+  image,
   primary,
   secondary,
   step = 0,
   topAction,
   backAction,
-  visualType,
 }) {
   const { theme } = useApp();
 
@@ -27,7 +25,7 @@ export default function OnboardingLayout({
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
+      <View style={styles.container}>
       <View style={styles.topBar}>
         {backAction ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={backAction} style={styles.topButton}>
@@ -49,11 +47,7 @@ export default function OnboardingLayout({
       </View>
 
       <View style={styles.visualWrap}>
-        {visualType === 'map' ? (
-          <MapPlaceholder style={styles.mapVisual} />
-        ) : (
-          <PlaceholderImage label={imageLabel} aspectRatio={1.1} style={styles.visual} />
-        )}
+        <Image source={image} accessibilityLabel={imageLabel} accessibilityRole="image" resizeMode="contain" style={styles.visual} />
       </View>
 
       <View style={styles.dots}>
@@ -84,7 +78,7 @@ export default function OnboardingLayout({
           </View>
         ) : null}
       </View>
-      </ScrollView>
+      </View>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -92,24 +86,31 @@ export default function OnboardingLayout({
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
+    flex: 1,
+    minHeight: 0,
     paddingHorizontal: 26,
-    paddingTop: 20,
-    paddingBottom: 28,
+    paddingTop: 8,
+    paddingBottom: 16,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
   },
   topBar: {
-    minHeight: 36,
+    flexShrink: 0,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   topButton: {
     width: 44,
-    height: 36,
+    height: 44,
     justifyContent: 'center',
   },
   skipButton: {
-    minHeight: 36,
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'flex-end',
     justifyContent: 'center',
   },
   skipText: {
@@ -117,27 +118,29 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   copyBlock: {
-    marginTop: 28,
-    minHeight: 218,
+    marginTop: 12,
+    flexShrink: 0,
   },
   visualWrap: {
     flex: 1,
-    justifyContent: 'center',
+    minHeight: 0,
+    marginTop: 18,
+    overflow: 'hidden',
+    borderRadius: 8,
   },
   visual: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
-    minHeight: 245,
-    maxHeight: 318,
-  },
-  mapVisual: {
-    aspectRatio: 1.25,
+    height: '100%',
+    borderRadius: 8,
   },
   dots: {
+    flexShrink: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 16,
-    marginBottom: 18,
+    marginTop: 14,
+    marginBottom: 14,
   },
   dot: {
     width: 9,
@@ -150,12 +153,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   description: {
-    marginTop: 20,
+    marginTop: 14,
     fontSize: 15,
     lineHeight: 24,
     fontWeight: '600',
   },
   actions: {
+    flexShrink: 0,
+    minHeight: 48,
     flexDirection: 'row',
     gap: 18,
   },

@@ -1,24 +1,20 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../../context/AppContext';
-import PlaceholderImage from '../../components/PlaceholderImage';
+import ProfilePortrait from '../../components/ProfilePortrait';
 import Screen from '../../components/Screen';
 import SettingsRow from '../../components/SettingsRow';
 
 export default function ProfileScreen({ navigation }) {
-  const { theme, profile, preferences, bookmarks, savedTrips } = useApp();
+  const { theme, profile, preferences, bookmarks, savedTrips, isGuestMode } = useApp();
   return (
     <Screen contentStyle={styles.content}>
-      <View style={styles.coverWrap}>
-        <PlaceholderImage label="Profile cover placeholder" showIcon={false} aspectRatio={2.9} style={[styles.cover, { backgroundColor: theme.colors.primarySoft }]} />
-        <PlaceholderImage label="Profile photo placeholder" image={profile.image} icon="person" iconSize={58} aspectRatio={1}
-          style={[styles.avatar, { borderColor: theme.colors.background }]} />
-      </View>
-      <Text style={[styles.name, { color: theme.colors.text }]}>{profile.name}</Text>
+      <ProfilePortrait navigation={navigation} profile={profile} editable={false} />
+      <Text style={[styles.name, { color: theme.colors.text }]}>{isGuestMode ? 'Tourist' : profile.name}</Text>
       <View style={[styles.badge, { backgroundColor: theme.colors.primarySoft }]}>
         <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Explorer</Text>
       </View>
-      {profile.bio ? <Text style={[styles.bio, { color: theme.colors.textMuted }]}>{profile.bio}</Text> : null}
+      {!isGuestMode && profile.bio ? <Text style={[styles.bio, { color: theme.colors.textMuted }]}>{profile.bio}</Text> : null}
       <View style={[styles.stats, { borderColor: theme.colors.border }]}>
         <Stat label="Trips" value={savedTrips.length} />
         <Stat label="Saved Places" value={bookmarks.length} />

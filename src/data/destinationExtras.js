@@ -1,6 +1,22 @@
+import { placeImages } from './placeImages';
+
 export const photoCategories = ['All', 'Exterior', 'Interior', 'Events', 'Nearby'];
 export const destinationPhotos = ['Exterior', 'Exterior', 'Interior', 'Interior', 'Events', 'Events', 'Nearby', 'Nearby', 'Exterior']
-  .map((category, index) => ({ id: 'photo-' + index, category, image: null }));
+  .map((category, index) => ({
+    id: 'photo-' + index,
+    category,
+    image: [
+      placeImages.penafranciaBasilica,
+      placeImages.museo,
+      placeImages.plazaQuinceMartires,
+      placeImages.ecologyPark,
+      placeImages.festival,
+      placeImages.diningPizza,
+      placeImages.diningCoffee,
+      placeImages.hotelCozy,
+      placeImages.penafranciaBasilica,
+    ][index],
+  }));
 
 export const sampleReviews = [
   { id: 'review-1', destinationId: 'destination-001', name: 'Maria Santos', image: null, rating: 5, helpful: 12, date: '2026-08-15', text: 'Beautiful and peaceful. A lovely stop during our day in Naga City.' },

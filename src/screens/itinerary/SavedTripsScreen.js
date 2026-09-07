@@ -9,16 +9,25 @@ import EmptyState from '../../components/EmptyState';
 import PlaceholderImage from '../../components/PlaceholderImage';
 import Screen from '../../components/Screen';
 import SelectionSheet from '../../components/SelectionSheet';
+import { isTravelerAccessRequired, redirectToLogin } from '../../utils/guestAccess';
 
 const tabs = ['Upcoming', 'Completed', 'Drafts'];
 export default function SavedTripsScreen({ navigation, route }) {
-  const { theme, savedTrips, deleteItinerary, updateItineraryStatus, itineraryError } = useApp();
+  const { theme, savedTrips, deleteItinerary, updateItineraryStatus, itineraryError, isGuestMode, firebaseUser, authReady } = useApp();
   const [activeTab, setActiveTab] = useState('Upcoming');
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [actionError, setActionError] = useState(null);
+  const accessRequired = isTravelerAccessRequired({ isGuestMode, firebaseUser, authReady });
+  useEffect(() => {
+    if (accessRequired) redirectToLogin(navigation);
+  }, [accessRequired, navigation]);
   useEffect(() => { if (tabs.includes(route.params?.status)) setActiveTab(route.params.status); }, [route.params?.status, route.params?.updatedAt]);
-  const filtered = savedTrips.filter((trip) => trip.status === activeTab);
+  const filtered = accessRequired ? [] : savedTrips.filter((trip) => trip.status === activeTab);
   const chooseAction = async (action) => {
+    if (accessRequired) {
+      redirectToLogin(navigation);
+      return;
+    }
     if (!selectedTrip) return;
     setActionError(null);
 
@@ -34,6 +43,7 @@ export default function SavedTripsScreen({ navigation, route }) {
       setActionError(error?.message || 'Unable to update this trip.');
     }
   };
+  if (accessRequired) return <View style={[styles.protectedScreen, { backgroundColor: theme.colors.background }]} />;
   return (
     <Screen contentStyle={styles.content}>
       <AppHeader centered title="Saved Trips" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
@@ -71,6 +81,7 @@ export default function SavedTripsScreen({ navigation, route }) {
   );
 }
 const styles = StyleSheet.create({
+  protectedScreen: { flex: 1 },
   content: { paddingTop: 8 }, tabs: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   errorBox: { minHeight: 44, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 14, justifyContent: 'center' },
   errorText: { fontSize: 12, lineHeight: 18, fontWeight: '800' },

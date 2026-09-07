@@ -18,7 +18,7 @@ const categories = [
 ];
 
 export default function NotificationsScreen({ navigation }) {
-  const { theme, visibleNotifications: notifications, markAllNotificationsRead } = useApp();
+  const { theme, visibleNotifications: notifications, markAllNotificationsRead, markNotificationsRead, notificationError, eventsError } = useApp();
   const [category, setCategory] = useState(categories[0]);
   const filtered = useMemo(
     () => notifications.filter((notification) => category.match === 'All' || notification.category === category.match),
@@ -28,6 +28,7 @@ export default function NotificationsScreen({ navigation }) {
   return (
     <Screen contentStyle={styles.content}>
       <AppHeader onBack={() => goToDashboard(navigation)} />
+      {notificationError || eventsError ? <Text accessibilityRole="alert" style={{ color: theme.colors.danger, marginBottom: 12 }}>{notificationError || eventsError}</Text> : null}
       <View style={styles.categories}>
         {categories.map((item) => (
           <CategoryChip key={item.label} label={item.label} selected={category.label === item.label} onPress={() => setCategory(item)} />
@@ -35,7 +36,10 @@ export default function NotificationsScreen({ navigation }) {
       </View>
       {filtered.length ? (
         filtered.map((notification) => (
-          <AppCard key={notification.id} style={styles.notification}>
+          <AppCard key={notification.id} accessibilityLabel={`${notification.read ? 'Read' : 'Unread'}: ${notification.title}`} onPress={() => {
+            markNotificationsRead([notification.id]);
+            if (notification.route) navigation.navigate(notification.route, notification.params);
+          }} style={[styles.notification, !notification.read && { borderColor: theme.colors.primary }]}>
             <View style={[styles.iconWrap, { backgroundColor: getNotificationColor(theme, notification.category) }]}>
               <Ionicons
                 name={getNotificationIcon(notification.category)}
@@ -86,6 +90,7 @@ const styles = StyleSheet.create({
   },
   categories: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginBottom: 10,
   },
   notification: {

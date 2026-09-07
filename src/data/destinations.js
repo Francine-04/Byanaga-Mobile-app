@@ -1,9 +1,11 @@
+import { placeImages } from './placeImages';
+
 export const destinations = [
   {
     id: 'destination-001',
     name: 'Penafrancia Basilica',
     category: 'Church',
-    image: null,
+    image: placeImages.penafranciaBasilica,
     rating: 4.8,
     distance: '1.2 km',
     estimatedVisitTime: '1 hr',
@@ -21,7 +23,7 @@ export const destinations = [
     id: 'destination-002',
     name: 'Museo del Seminario',
     category: 'Culture',
-    image: null,
+    image: placeImages.museo,
     rating: 4.6,
     distance: '2.3 km',
     estimatedVisitTime: '45 min',
@@ -39,7 +41,7 @@ export const destinations = [
     id: 'destination-003',
     name: 'Naga Ecological Park',
     category: 'Nature',
-    image: null,
+    image: placeImages.ecologyPark,
     rating: 4.7,
     distance: '4.7 km',
     estimatedVisitTime: '2 hrs',
@@ -57,7 +59,7 @@ export const destinations = [
     id: 'destination-004',
     name: 'Plaza Quince Martires',
     category: 'Historical',
-    image: null,
+    image: placeImages.plazaQuinceMartires,
     rating: 4.5,
     distance: '1.8 km',
     estimatedVisitTime: '30 min',
@@ -75,7 +77,7 @@ export const destinations = [
     id: 'destination-005',
     name: 'CWC Mall',
     category: 'Shopping',
-    image: null,
+    image: placeImages.smCityNaga,
     rating: 4.4,
     distance: '3.5 km',
     estimatedVisitTime: '1.5 hrs',

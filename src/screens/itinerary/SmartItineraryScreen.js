@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
-import { smartItineraryStops } from '../../data/itineraries';
-import { optimizeRoute } from '../../utils/routeOptimization';
+import { generateItinerary } from '../../utils/generateItinerary';
+import { isTravelerAccessRequired, redirectToLogin } from '../../utils/guestAccess';
 import AppHeader, { goToDashboard } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
@@ -11,52 +11,39 @@ import Screen from '../../components/Screen';
 import TimelineItem from '../../components/TimelineItem';
 
 export default function SmartItineraryScreen({ navigation }) {
-  const { theme, destinations, restaurants } = useApp();
-  const stops = useMemo(() => {
-    const suggestedStops = [
-      destinations[0] ? toTimelineStop(destinations[0], '8:00 AM') : null,
-      destinations[1] ? toTimelineStop(destinations[1], '9:45 AM') : null,
-      restaurants[0] ? {
-        id: `lunch-${restaurants[0].id}`,
-        time: '12:00 PM',
-        title: restaurants[0].name,
-        subtitle: 'Lunch break',
-        crowd: 'Moderate',
-        image: null,
-      } : null,
-      destinations[2] ? toTimelineStop(destinations[2], '2:00 PM') : null,
-    ].filter(Boolean);
-
-    return optimizeRoute(suggestedStops.length ? suggestedStops : smartItineraryStops);
-  }, [destinations, restaurants]);
+  const { theme, destinations, restaurants, preferences, weather, isGuestMode, firebaseUser, authReady } = useApp();
+  const suggestion = useMemo(() => generateItinerary({ destinations, restaurants, preferences: isGuestMode ? {} : preferences, weather }), [destinations, restaurants, preferences, weather, isGuestMode]);
+  const stops = suggestion.days.flatMap((day) => day.places);
+  const customize = () => {
+    if (isTravelerAccessRequired({ isGuestMode, firebaseUser, authReady })) {
+      redirectToLogin(navigation);
+      return;
+    }
+    navigation.navigate('CreateItinerary', { trip: { name: 'My Naga City Trip', days: suggestion.days } });
+  };
 
   return (
     <Screen contentStyle={styles.content}>
       <AppHeader onBack={() => goToDashboard(navigation)} rightIcon="information-circle-outline" rightLabel="Itinerary information" />
       <Text style={[styles.title, { color: theme.colors.text }]}>Smart Itinerary</Text>
       <Text style={[styles.copy, { color: theme.colors.textMuted }]}>
-        Powered by Preference Matching & Route Optimization
+        Based on your preferences and current weather
       </Text>
+      <Text style={[styles.copy, { color: theme.colors.textMuted }]}>{suggestion.advice}</Text>
       <View style={styles.timeline}>
-        {stops.map((stop, index) => (
-          <TimelineItem key={stop.id} stop={stop} isLast={index === stops.length - 1} />
-        ))}
+        {suggestion.days.map((day, dayIndex) => <View key={day.id}>
+          <Text style={[styles.copy, { color: theme.colors.text }]}>Day {dayIndex + 1}</Text>
+          {day.places.map((stop, index) => <TimelineItem key={stop.entryId} stop={stop} isLast={index === day.places.length - 1} />)}
+        </View>)}
+        {!stops.length ? <Text style={{ color: theme.colors.text }}>No eligible Naga City places are available. Explore places and try again.</Text> : null}
       </View>
       <AppCard style={styles.summary}>
-        <Metric label="Distance" value="12.6 km" />
-        <Metric label="Est. Time" value="6.5 hrs" />
-        <Metric label="Transport" value="Walking / Tricycle" />
+        <Metric label="Places" value={String(stops.length)} />
+        <Metric label="Days" value={String(suggestion.days.length)} />
+        <Metric label="Schedule" value="Editable" />
       </AppCard>
       <View style={styles.actions}>
-        <AppButton title="Customize" variant="outline" onPress={() => navigation.navigate('CreateItinerary')} style={styles.customize} />
-        <AppButton title="Optimize Route" style={styles.optimize} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Download itinerary"
-          style={[styles.iconAction, { borderColor: theme.colors.primary }]}
-        >
-          <Ionicons name="download-outline" size={20} color={theme.colors.primary} />
-        </Pressable>
+        <AppButton title="Customize & Save" onPress={customize} disabled={!stops.length} style={styles.customize} />
       </View>
     </Screen>
   );

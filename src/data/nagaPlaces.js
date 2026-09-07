@@ -1,4 +1,6 @@
-export const nagaPlaces = [
+import { getPlaceImage } from './placeImages';
+
+const rawNagaPlaces = [
   {
     id: 'penafrancia-basilica-minore',
     name: 'Penafrancia Basilica Minore',
@@ -184,6 +186,11 @@ export const nagaPlaces = [
     longitude: 123.1999,
   },
 ];
+
+export const nagaPlaces = rawNagaPlaces.map((place) => ({
+  ...place,
+  image: getPlaceImage(place),
+}));
 
 export function findKnownPlace(value) {
   const normalized = normalizePlaceKey(value);
