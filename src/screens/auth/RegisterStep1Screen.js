@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useApp } from '../../context/AppContext';
 import { nationalityOptions } from '../../data/nationalities';
 import AppHeader from '../../components/AppHeader';
@@ -9,7 +10,7 @@ import AppTextInput from '../../components/AppTextInput';
 import Screen from '../../components/Screen';
 import SelectField from '../../components/SelectField';
 import StepProgress from '../../components/StepProgress';
-import { normalizeEmail, passwordRuleText, sanitizeAgeInput, validateRegistrationProfile } from '../../utils/authValidation';
+import { normalizeEmail, passwordRuleText, calculateAge, formatBirthday, validateRegistrationProfile } from '../../utils/authValidation';
 
 const genderOptions = ['MALE', 'FEMALE'];
 
@@ -18,7 +19,7 @@ export default function RegisterStep1Screen({ navigation }) {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
-    age: '',
+    birthday: null,
     gender: '',
     nationality: '',
     email: '',
@@ -29,12 +30,19 @@ export default function RegisterStep1Screen({ navigation }) {
   const [formError, setFormError] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const update = (field, value) => {
-    const nextValue = field === 'age' ? sanitizeAgeInput(value) : value;
-    setForm((current) => ({ ...current, [field]: nextValue }));
+    setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: '' }));
     setFormError('');
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      update('birthday', selectedDate);
+    }
   };
 
   const handleContinue = () => {
@@ -51,11 +59,16 @@ export default function RegisterStep1Screen({ navigation }) {
     navigation.navigate('RegisterStep2', {
       registration: {
         ...form,
-        age: sanitizeAgeInput(form.age),
+        birthday: formatBirthday(form.birthday),
         email: normalizeEmail(form.email),
       },
     });
   };
+
+  const birthdayDisplay = form.birthday 
+    ? form.birthday.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+  const age = form.birthday ? calculateAge(form.birthday) : null;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
@@ -95,17 +108,22 @@ export default function RegisterStep1Screen({ navigation }) {
           />
         </View>
         <View style={styles.row}>
-          <AppTextInput
-            label="Age"
-            value={form.age}
-            onChangeText={(value) => update('age', value)}
-            placeholder="Enter age"
-            keyboardType="number-pad"
-            inputMode="numeric"
-            maxLength={3}
-            error={errors.age}
-            style={styles.half}
-          />
+          <View style={styles.half}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.textMuted }]}>Birthday</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Select birthday"
+              onPress={() => setShowDatePicker(true)}
+              style={[styles.dateButton, { backgroundColor: theme.colors.input, borderColor: errors.birthday ? theme.colors.danger : theme.colors.border }]}
+            >
+              <Ionicons name="calendar-outline" size={20} color={theme.colors.textMuted} />
+              <Text style={[styles.dateText, { color: birthdayDisplay ? theme.colors.text : theme.colors.textSoft }]}>
+                {birthdayDisplay || 'Select birthday'}
+              </Text>
+            </Pressable>
+            {age !== null && <Text style={[styles.ageHint, { color: theme.colors.textMuted }]}>Age: {age} years old</Text>}
+            {errors.birthday ? <Text style={[styles.fieldError, { color: theme.colors.danger }]}>{errors.birthday}</Text> : null}
+          </View>
           <SelectField
             label="Gender"
             value={form.gender}
@@ -116,6 +134,16 @@ export default function RegisterStep1Screen({ navigation }) {
             style={styles.half}
           />
         </View>
+        {showDatePicker && (
+          <DateTimePicker
+            value={form.birthday || new Date(2000, 0, 1)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+            minimumDate={new Date(1900, 0, 1)}
+          />
+        )}
         <SelectField
           label="Nationality"
           value={form.nationality}
@@ -227,6 +255,35 @@ const styles = StyleSheet.create({
   },
   half: {
     flex: 1,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  dateButton: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dateText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  ageHint: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  fieldError: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '700',
   },
   helpText: {
     marginTop: -10,
