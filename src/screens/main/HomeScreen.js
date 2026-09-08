@@ -42,14 +42,27 @@ export default function HomeScreen({ navigation }) {
     weather,
     weatherError,
     refreshWeather,
+    savedTrips,
   } = useApp();
   const toggleBookmark = useBookmarkAction();
   const [now, setNow] = useState(() => new Date());
   const featured = matchByPreferences(isGuestMode ? {} : preferences, destinations, weather).slice(0, 3);
+  const recommendedPlaces = useMemo(
+    () => matchByPreferences(isGuestMode ? {} : preferences, destinations, weather, now).slice(0, 4),
+    [isGuestMode, preferences, destinations, weather, now]
+  );
   const homeEvents = useMemo(
     () => tourismEvents.filter((event) => isEventInCurrentWeek(event, now)).slice(0, 4),
     [now, tourismEvents]
   );
+  
+  // Check if user has active itineraries (1-2 trips that are Upcoming or Completed)
+  const activeItineraries = useMemo(
+    () => savedTrips.filter((trip) => ['Upcoming', 'Completed'].includes(trip.status)),
+    [savedTrips]
+  );
+  const hasActiveItineraries = activeItineraries.length >= 1 && activeItineraries.length <= 2;
+  
   const unreadCount = visibleNotifications.filter((notification) => !notification.read).length;
   const firstName = useMemo(() => (isGuestMode ? 'Tourist' : getFirstName(profile)), [isGuestMode, profile]);
   const greeting = useMemo(() => getTimeGreeting(now), [now]);
@@ -151,6 +164,15 @@ export default function HomeScreen({ navigation }) {
         ) : null}
 
         <SectionHeader title="Local Establishments" onPress={() => navigation.navigate('Establishments')} />
+        {/* DEBUG: Show establishment count */}
+        {__DEV__ && (
+          <AppCard style={{ marginBottom: 8, padding: 12 }}>
+            <Text style={{ fontSize: 11, color: theme.colors.textMuted }}>
+              🔍 DEBUG: {establishments.length} approved establishments loaded
+              {establishments.length > 0 && ` (${establishments.map(e => e.categoryLabel || e.category).join(', ')})`}
+            </Text>
+          </AppCard>
+        )}
         {establishments.length ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {establishments.slice(0, 5).map((establishment) => (
@@ -171,24 +193,6 @@ export default function HomeScreen({ navigation }) {
           </AppCard>
         )}
 
-        <LinearGradient colors={theme.dark ? [theme.colors.surface, theme.colors.primarySoft] : [theme.colors.primarySoft, theme.colors.secondarySoft]} style={styles.exploreBanner}>
-          <View style={styles.exploreCopy}>
-            <Text style={[styles.exploreTitle, { color: theme.colors.text }]}>Explore Naga City</Text>
-            <Text style={[styles.exploreText, { color: theme.colors.textMuted }]}>Discover more places, plan your itinerary and enjoy.</Text>
-          </View>
-          <View style={styles.exploreImageWrap}>
-            <PlaceholderImage label="City Preview" aspectRatio={1.2} style={styles.exploreImage} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open explore"
-              onPress={() => navigation.navigate('Explore')}
-              style={[styles.exploreArrow, { backgroundColor: theme.colors.primary }]}
-            >
-              <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        </LinearGradient>
-
         <SectionHeader title="Tourism Heatmap" onPress={() => navigation.navigate('Heatmap')} />
         <AppCard style={styles.mapCard}>
           <MapPlaceholder zones={heatZones} style={styles.mapPreview} />
@@ -201,19 +205,23 @@ export default function HomeScreen({ navigation }) {
           </View>
         </AppCard>
 
-        <SectionHeader title="Smart Itinerary" onPress={() => navigation.navigate('SmartItinerary')} />
-        <AppCard style={styles.smartCard}>
-          <View style={[styles.smartIcon, { backgroundColor: theme.colors.primarySoft }]}>
-            <Ionicons name="map-outline" size={24} color={theme.colors.primary} />
-          </View>
-          <View style={styles.smartBody}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Build a route in minutes</Text>
-            <Text style={[styles.cardCopy, { color: theme.colors.textMuted }]}>
-              Powered by Preference Matching & Route Optimization.
-            </Text>
-          </View>
-          <AppButton title="Create" onPress={() => navigation.navigate('SmartItinerary')} style={styles.shortButton} />
-        </AppCard>
+        {!hasActiveItineraries && (
+          <>
+            <SectionHeader title="Smart Itinerary" onPress={() => navigation.navigate('SmartItinerary')} />
+            <AppCard style={styles.smartCard}>
+              <View style={[styles.smartIcon, { backgroundColor: theme.colors.primarySoft }]}>
+                <Ionicons name="map-outline" size={24} color={theme.colors.primary} />
+              </View>
+              <View style={styles.smartBody}>
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Build a route in minutes</Text>
+                <Text style={[styles.cardCopy, { color: theme.colors.textMuted }]}>
+                  Powered by Preference Matching & Route Optimization.
+                </Text>
+              </View>
+              <AppButton title="Create" onPress={() => navigation.navigate('SmartItinerary')} style={styles.shortButton} />
+            </AppCard>
+          </>
+        )}
 
         <SectionHeader title="Events This Week" onPress={() => navigation.navigate('Events')} />
         {homeEvents.length ? (
@@ -224,7 +232,7 @@ export default function HomeScreen({ navigation }) {
           </ScrollView>
         ) : <EventWeekState source={eventsSource} hasError={Boolean(eventsError)} />}
 
-        <SectionHeader title="Popular Restaurants" onPress={() => navigation.navigate('Restaurants')} />
+        <SectionHeader title="Restaurants" onPress={() => navigation.navigate('Restaurants')} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {restaurants.map((restaurant) => (
             <RestaurantCard key={restaurant.id} restaurant={restaurant} showActions={false}
@@ -240,10 +248,13 @@ export default function HomeScreen({ navigation }) {
           ))}
         </ScrollView>
 
-        <SectionHeader title="Nearby Attractions" onPress={() => navigation.navigate('NearbyPlaces')} />
-        {destinations.slice(0, 2).map((destination) => (
+        <SectionHeader 
+          title={isGuestMode ? "Recommended Places" : "Recommended for You"} 
+          onPress={() => navigation.navigate('Explore')} 
+        />
+        {recommendedPlaces.slice(0, 2).map((destination) => (
           <DestinationCard
-            key={`nearby-${destination.id}`}
+            key={`recommended-${destination.id}`}
             destination={destination}
             horizontal
             bookmarked={bookmarks.includes(destination.id)}
@@ -418,45 +429,6 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     fontWeight: '900',
     textAlign: 'center',
-  },
-  exploreBanner: {
-    marginTop: 16,
-    borderRadius: 24,
-    minHeight: 110,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  exploreCopy: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  exploreTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  exploreText: {
-    marginTop: 8,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  exploreImageWrap: {
-    width: 116,
-  },
-  exploreImage: {
-    borderRadius: 18,
-  },
-  exploreArrow: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   mapCard: {
     padding: 12,
