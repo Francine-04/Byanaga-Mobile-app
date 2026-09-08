@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
@@ -9,8 +9,11 @@ import AppTextInput from '../../components/AppTextInput';
 import DestinationSelectorModal from '../../components/DestinationSelectorModal';
 import Screen from '../../components/Screen';
 import TravelDateField from '../../components/TravelDateField';
+import VisitTimeField from '../../components/VisitTimeField';
+import { manilaDate, parseTravelDate, visitTimeFields } from '../../utils/travelSchedule';
 import { isAuthRequiredError } from '../../services/authService';
 import { generateItinerary } from '../../utils/generateItinerary';
+import { findKnownPlace } from '../../data/nagaPlaces';
 import { isTravelerAccessRequired, redirectToLogin } from '../../utils/guestAccess';
 import {
   createDuplicateItineraryTitleError,
@@ -20,18 +23,29 @@ import {
 } from '../../utils/itineraryTitle';
 
 export default function CreateItineraryScreen({ navigation, route }) {
-  const { theme, destinations, restaurants, preferences, weather, isGuestMode, firebaseUser, authReady, savedTrips, saveItinerary } = useApp();
+  const { theme, destinations, recommendationCatalog, travelerReady, backendErrors, preferences, weather, isGuestMode, firebaseUser, authReady, savedTrips, saveItinerary } = useApp();
   const [suggestionMessage, setSuggestionMessage] = useState('');
-  const generate = () => {
-    const result = generateItinerary({ destinations, restaurants, preferences: isGuestMode ? {} : preferences, weather, travelDate });
+  const [recommendation, setRecommendation] = useState(route.params?.trip?.recommendation || null);
+  const [replacePending, setReplacePending] = useState(false);
+  const savePending = useRef(false);
+  const generate = (replace = false) => {
+    if (accessRequired) { requestLogin(); return; }
+    if (recommendationCatalog.loading || !travelerReady) { setFormError(backendErrors.auth || 'Please wait for your saved preferences and places to load.'); return; }
+    if (recommendationCatalog.error) { setFormError(recommendationCatalog.error); return; }
+    if (!parseTravelDate(travelDate)) { setFormError('Travel date must be a valid calendar date.'); return; }
+    if (!replace && days.some((day) => day.places.length)) { setReplacePending(true); return; }
+    setReplacePending(false);
+    const result = generateItinerary({ ...recommendationCatalog, preferences, weather, travelDate });
     if (!result.days.length) { setFormError('No eligible Naga City places available. Please add places manually.'); return; }
-    setDays((current) => current.some((day) => day.places.length) ? [...current, ...result.days.map((day, index) => ({ ...day, id: `day-${current.length + index + 1}` }))] : result.days);
+    setDays(result.days);
+    setTravelDate(result.travelDate);
+    setRecommendation(result.recommendation);
     setSuggestionMessage(result.advice);
     setFormError(null);
   };
-  const [tripId] = useState(() => route.params?.trip?.id || `trip-${Date.now()}`);
+  const [tripId, setTripId] = useState(() => route.params?.trip?.id || null);
   const [tripName, setTripName] = useState(route.params?.trip?.name || 'My Naga City Trip');
-  const [travelDate, setTravelDate] = useState(route.params?.trip?.travelDate || route.params?.trip?.date || '');
+  const [travelDate, setTravelDate] = useState(route.params?.trip?.travelDate || manilaDate());
   const [days, setDays] = useState(() => {
     if (route.params?.trip?.days?.length) return route.params.trip.days;
     return buildInitialDays(route.params?.place);
@@ -86,6 +100,9 @@ export default function CreateItineraryScreen({ navigation, route }) {
               displayTime: place.displayTime,
               time: place.displayTime,
               source: place.source,
+              category: place.category,
+              sourceCollection: place.sourceCollection,
+              eventId: place.eventId || null,
             },
           ],
         };
@@ -114,6 +131,7 @@ export default function CreateItineraryScreen({ navigation, route }) {
   };
 
   const saveTrip = async (status = 'Drafts') => {
+    if (savePending.current) return;
     if (accessRequired) {
       requestLogin();
       return;
@@ -130,24 +148,27 @@ export default function CreateItineraryScreen({ navigation, route }) {
     }
 
     const cleanDate = travelDate.trim();
-    if (cleanDate && !isDateValue(cleanDate)) {
+    if ((status !== 'Drafts' || cleanDate) && !parseTravelDate(cleanDate)) {
       setFormError('Travel date must use YYYY-MM-DD.');
       return;
     }
+    if (status !== 'Drafts' && !days.some((day) => day.places.length)) { setFormError('Add at least one place before saving your trip.'); return; }
 
+    savePending.current = true;
     setSavingStatus(status);
     setFormError(null);
     setTripNameError(null);
 
     try {
-      await saveItinerary({
+      const saved = await saveItinerary({
         itineraryId: tripId,
         tripName: cleanTripName,
         travelDate: cleanDate,
         status,
         days,
-        existingCreatedAt: route.params?.trip?.createdAt,
+        recommendation,
       });
+      setTripId(saved.id);
       goToMain(navigation, 'Trips', { status, updatedAt: Date.now() });
     } catch (error) {
       if (isAuthRequiredError(error)) {
@@ -160,6 +181,7 @@ export default function CreateItineraryScreen({ navigation, route }) {
       }
       setFormError(error?.message || 'Unable to save itinerary.');
     } finally {
+      savePending.current = false;
       setSavingStatus(null);
     }
   };
@@ -198,7 +220,12 @@ export default function CreateItineraryScreen({ navigation, route }) {
           style={styles.firstField}
         />
         <TravelDateField value={travelDate} onChange={setTravelDate} error={formError?.includes('Travel date') ? formError : null} />
-        <AppButton title="Generate Smart Itinerary" onPress={generate} disabled={!!savingStatus} variant="outline" />
+        <AppButton title="Generate Smart Itinerary" onPress={() => generate()} disabled={!!savingStatus} variant="outline" />
+        {replacePending ? <View style={{ marginTop: 12, gap: 10 }}>
+          <Text style={{ color: theme.colors.text }}>Replace the current stops with a new suggested itinerary?</Text>
+          <AppButton title="Replace Stops" onPress={() => generate(true)} disabled={!!savingStatus} />
+          <AppButton title="Keep Current Stops" variant="outline" onPress={() => setReplacePending(false)} />
+        </View> : null}
         {suggestionMessage ? <Text style={{ color: theme.colors.textMuted, marginVertical: 12 }}>{suggestionMessage}</Text> : null}
 
         {formError && !formError.includes('Travel date') ? (
@@ -228,6 +255,7 @@ export default function CreateItineraryScreen({ navigation, route }) {
                       place={place}
                       destinations={destinations}
                       onDelete={() => deletePlace(day.id, placeIndex)}
+                      onTimeChange={(value) => setDays((current) => current.map((item) => item.id !== day.id ? item : { ...item, places: item.places.map((stop, index) => index !== placeIndex ? stop : { ...stop, ...visitTimeFields(value), time: value }) }))}
                     />
                   ))
                 ) : (
@@ -289,7 +317,7 @@ export default function CreateItineraryScreen({ navigation, route }) {
   );
 }
 
-function PlaceRow({ place, destinations, onDelete }) {
+function PlaceRow({ place, destinations, onDelete, onTimeChange }) {
   const { theme } = useApp();
   const destination = destinations.find((item) => item.id === place.destinationId || item.dashboardId === place.destinationId);
   const title = place.title || place.placeName || destination?.name || 'Add place';
@@ -297,9 +325,7 @@ function PlaceRow({ place, destinations, onDelete }) {
 
   return (
     <View style={styles.placeRow}>
-      <View style={[styles.timePill, { backgroundColor: theme.colors.surfaceMuted }]}>
-        <Text style={[styles.timeText, { color: theme.colors.text }]}>{place.displayTime || place.time || 'Time'}</Text>
-      </View>
+      <VisitTimeField compact value={place.displayTime || place.time || ''} onChange={onTimeChange} style={{ width: 88 }} />
       <View style={styles.placeCopy}>
         <Text style={[styles.placeName, { color: theme.colors.text }]} numberOfLines={1}>
           {title}
@@ -316,6 +342,7 @@ function PlaceRow({ place, destinations, onDelete }) {
 }
 
 function buildInitialDays(place) {
+  const known = place ? findKnownPlace(place.name) : null;
   const places = place
     ? [
         {
@@ -325,8 +352,8 @@ function buildInitialDays(place) {
           title: place.name,
           placeName: place.name,
           address: place.address || 'Naga City',
-          latitude: place.latitude ?? null,
-          longitude: place.longitude ?? null,
+          latitude: place.latitude ?? known?.latitude ?? null,
+          longitude: place.longitude ?? known?.longitude ?? null,
           visitTime: '8:00 AM',
           displayTime: '8:00 AM',
           time: '8:00 AM',
@@ -336,10 +363,6 @@ function buildInitialDays(place) {
     : [];
 
   return [{ id: 'day-1', open: true, places }];
-}
-
-function isDateValue(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 }
 
 const styles = StyleSheet.create({

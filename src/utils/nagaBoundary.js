@@ -19,6 +19,7 @@ export function getNagaBoundaryFeature() {
 }
 
 export function isValidCoordinate(latitude, longitude) {
+  if ([latitude, longitude].some((value) => value == null || value === '' || typeof value === 'boolean')) return false;
   const lat = Number(latitude);
   const lng = Number(longitude);
 
@@ -26,6 +27,7 @@ export function isValidCoordinate(latitude, longitude) {
 }
 
 export function isCoordinateInsideNagaCity(latitude, longitude) {
+  if (!isValidCoordinate(latitude, longitude)) return false;
   const lat = Number(latitude);
   const lng = Number(longitude);
 

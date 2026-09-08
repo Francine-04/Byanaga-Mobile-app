@@ -27,7 +27,7 @@ export default function useNotificationFeed({ userId, events, trips, zones, esta
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') setNow(Date.now()); });
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
-  useEffect(() => subscribeToVouchers((data) => { setVouchers(data); error('offers', null); }, (cause) => { setVouchers([]); error('offers', cause); }), [error]);
+  useEffect(() => subscribeToVouchers((data) => { setVouchers(data); error('offers', null); }, (cause) => { setVouchers([]); error('offers', cause); }), [error, userId]);
   useEffect(() => {
     let active = true;
     setDirect([]);

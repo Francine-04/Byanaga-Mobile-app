@@ -8,11 +8,11 @@ export const NAGA_PLACE_CATEGORIES = ['All', 'Nature', 'Church', 'Culture', 'Foo
 export function searchNagaCatalogPlaces({ query = '', category = 'All', collections = {}, limit = 30 } = {}) {
   const normalizedQuery = normalizePlaceKey(query);
   const candidates = [
-    ...nagaPlaces.map((place) => normalizeKnownPlace(place)),
     ...(collections.destinations || []).map((place) => normalizeCollectionPlace(place, 'destination')),
     ...(collections.restaurants || []).map((place) => normalizeCollectionPlace(place, 'restaurant')),
     ...(collections.accommodations || []).map((place) => normalizeCollectionPlace(place, 'accommodation')),
     ...(collections.events || []).map((place) => normalizeCollectionPlace(place, 'event')),
+    ...nagaPlaces.map((place) => normalizeKnownPlace(place)),
   ].filter(Boolean);
 
   return dedupePlaces(candidates)
@@ -64,6 +64,8 @@ function normalizeCollectionPlace(item, type) {
     mapboxPlaceId: item?.mapboxPlaceId,
     rating: item?.rating,
     source: item?.source || `byanaga-${type}`,
+    sourceCollection: item?.sourceCollection || (type === 'event' ? 'events' : ''),
+    eventId: type === 'event' ? item.id : null,
     tags: [
       ...(Array.isArray(item?.tags) ? item.tags : []),
       item?.cuisine,
@@ -102,6 +104,8 @@ function normalizePlace(place) {
     aliases: place.aliases || [],
     rating: place.rating,
     source: place.source || 'byanaga',
+    sourceCollection: place.sourceCollection || '',
+    eventId: place.eventId || null,
     searchableText: [
       place.name,
       place.address,

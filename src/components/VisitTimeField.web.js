@@ -4,12 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import AppButton from './AppButton';
 import AppTextInput from './AppTextInput';
+import { parseVisitMinutes } from '../utils/travelSchedule';
 
 const hours = Array.from({ length: 12 }, (_, index) => index + 1);
 const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 const periods = ['AM', 'PM'];
 
-export default function VisitTimeField({ value, onChange, style, error }) {
+export default function VisitTimeField({ value, onChange, style, error, compact = false }) {
   const { theme } = useApp();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => parseTimeValue(value));
@@ -28,9 +29,11 @@ export default function VisitTimeField({ value, onChange, style, error }) {
   return (
     <View style={style}>
       <Pressable accessibilityRole="button" accessibilityLabel="Open visit time picker" onPress={() => setOpen(true)}>
-        <View pointerEvents="none">
+        {compact ? <View style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 8, borderColor: theme.colors.border }}>
+          <Text style={{ color: theme.colors.text, fontSize: 12 }}>{value || 'Pick time'}</Text>
+        </View> : <View pointerEvents="none">
           <AppTextInput label="Visit Time" value={value} placeholder="Select visit time" leftIcon="time-outline" editable={false} error={error} />
-        </View>
+        </View>}
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -112,25 +115,9 @@ function Option({ label, selected, onPress, wide = false }) {
 }
 
 function parseTimeValue(value) {
-  const match = String(value || '').trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-
-  if (!match) {
-    return { hour: 8, minute: '00', period: 'AM' };
-  }
-
-  let hour = Number(match[1]);
-  const minute = String(match[2] || '00').padStart(2, '0');
-  const period = (match[3] || 'AM').toUpperCase();
-
-  if (!Number.isFinite(hour) || hour < 1 || hour > 12) {
-    hour = 8;
-  }
-
-  return {
-    hour,
-    minute: minutes.includes(minute) ? minute : '00',
-    period: periods.includes(period) ? period : 'AM',
-  };
+  const total = parseVisitMinutes(value) ?? 480;
+  const hour = Math.floor(total / 60);
+  return { hour: hour % 12 || 12, minute: String(total % 60).padStart(2, '0'), period: hour >= 12 ? 'PM' : 'AM' };
 }
 
 const styles = StyleSheet.create({

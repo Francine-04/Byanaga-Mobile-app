@@ -26,6 +26,7 @@ function service(overrides = {}) {
     'firebase/database': {},
     './firebaseApp': { auth: { name: 'existing-auth' } },
     '../utils/authValidation': validation,
+    '../utils/travelerPreferences': load('src/utils/travelerPreferences.js', {}),
   });
 }
 test('reset uses the existing Firebase Auth and normalizes the registered address', async () => {

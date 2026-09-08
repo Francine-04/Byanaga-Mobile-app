@@ -119,10 +119,12 @@ export default function LoginScreen({ navigation, route }) {
 
     setIsGuestMode(false);
     setIsLoggedIn(true);
-    if (result.record?.onboardingCompletedAt) {
+    if (!hasSavedPreferences(result.record?.preferences)) {
+      navigation.navigate('RegisterStep2', { socialOnboarding: true });
+    } else if (result.record?.onboardingCompletedAt) {
       navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Main' }] });
     } else {
-      navigation.navigate('RegisterStep2', { socialOnboarding: true });
+      navigation.getParent()?.navigate('LocationPermission');
     }
   }, [navigation, remember, setPreferences, setProfile, setIsGuestMode, setIsLoggedIn]);
 

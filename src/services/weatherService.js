@@ -1,26 +1,34 @@
 const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const NAGA_WEATHER_COORDS = { latitude: 13.624, longitude: 123.185 };
 const NAGA_TIMEZONE = 'Asia/Manila';
+let pendingWeatherRequest = null;
 
 export const fallbackWeather = {
   city: 'Naga City',
-  condition: 'Partly Cloudy',
-  temperature: 26,
-  temperatureLabel: '26\u00B0C',
-  apparentTemperature: 28,
-  humidity: 82,
-  windSpeed: 12,
-  windDirection: 'NE',
-  rainChance: 20,
-  weatherCode: 2,
+  condition: 'Weather unavailable',
+  temperature: null,
+  temperatureLabel: '--',
+  apparentTemperature: null,
+  humidity: null,
+  windSpeed: null,
+  windDirection: '',
+  rainChance: null,
+  weatherCode: null,
   isDay: true,
-  description: 'Sample weather',
-  source: 'sample',
+  description: 'Weather unavailable',
+  source: 'unavailable',
   observedAt: null,
   updatedAt: null,
 };
 
-export async function fetchNagaWeather() {
+export function fetchNagaWeather() {
+  if (!pendingWeatherRequest) {
+    pendingWeatherRequest = requestNagaWeather().finally(() => { pendingWeatherRequest = null; });
+  }
+  return pendingWeatherRequest;
+}
+
+async function requestNagaWeather() {
   const params = new URLSearchParams({
     latitude: String(NAGA_WEATHER_COORDS.latitude),
     longitude: String(NAGA_WEATHER_COORDS.longitude),
@@ -29,44 +37,60 @@ export async function fetchNagaWeather() {
       'relative_humidity_2m',
       'apparent_temperature',
       'is_day',
-      'precipitation',
-      'rain',
-      'showers',
       'weather_code',
-      'cloud_cover',
       'wind_speed_10m',
       'wind_direction_10m',
-      'wind_gusts_10m',
     ].join(','),
     hourly: 'precipitation_probability',
     timezone: NAGA_TIMEZONE,
     forecast_days: '1',
+    models: 'best_match',
+    cell_selection: 'land',
+    temperature_unit: 'celsius',
     wind_speed_unit: 'kmh',
   });
 
-  const response = await fetch(`${OPEN_METEO_FORECAST_URL}?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(`Weather request failed with status ${response.status}.`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  let data;
+  try {
+    const response = await fetch(`${OPEN_METEO_FORECAST_URL}?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Weather request failed with status ${response.status}.`);
+    }
+    data = await response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('Weather request timed out. Please try again.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-
-  const data = await response.json();
   const current = data?.current;
-  if (!current || !Number.isFinite(Number(current.temperature_2m))) {
+  if (!current || current.temperature_2m == null || !Number.isFinite(Number(current.temperature_2m))) {
     throw new Error('Weather service returned incomplete current conditions.');
+  }
+  // API times use Asia/Manila, not the phone's timezone. Never present old data as current.
+  const readingTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(current.time || '')
+    ? Date.parse(`${current.time}+08:00`) : NaN;
+  const age = Date.now() - readingTime;
+  if (!Number.isFinite(age) || age > 90 * 60 * 1000 || age < -30 * 60 * 1000) {
+    throw new Error('Current Naga City weather is unavailable or out of date. Please refresh again.');
   }
 
   const temperature = roundNumber(current.temperature_2m, fallbackWeather.temperature);
   const apparentTemperature = roundNumber(current.apparent_temperature, temperature);
   const weatherCode = roundNumber(current.weather_code, fallbackWeather.weatherCode);
-  const isDay = Number(current.is_day) === 1;
+  const hour = Number(current.time.slice(11, 13));
+  const isDay = current.is_day == null ? hour >= 6 && hour < 18 : Number(current.is_day) === 1;
   const condition = getWeatherDescription(weatherCode, isDay);
   const humidity = clampPercentage(current.relative_humidity_2m, fallbackWeather.humidity);
   const windSpeed = roundNumber(current.wind_speed_10m, fallbackWeather.windSpeed);
   const windDirection = getCompassDirection(current.wind_direction_10m);
-  const rainChance = getCurrentRainChance(data.hourly, current.time) ?? deriveRainChance(current);
+  const rainChance = getCurrentRainChance(data.hourly, current.time);
 
   return {
     city: 'Naga City',
+    region: 'Camarines Sur, Philippines',
     condition,
     temperature,
     temperatureLabel: `${temperature}\u00B0C`,
@@ -96,18 +120,12 @@ function getCurrentRainChance(hourly, currentTime) {
   return clampPercentage(hourly.precipitation_probability[matchIndex], fallbackWeather.rainChance);
 }
 
-function deriveRainChance(current) {
-  const precipitation = Number(current?.precipitation ?? 0) + Number(current?.rain ?? 0) + Number(current?.showers ?? 0);
-  if (!Number.isFinite(precipitation)) return fallbackWeather.rainChance;
-  if (precipitation > 0) return 80;
-  return 0;
-}
-
 function getCompassDirection(degrees) {
+  if (degrees == null || degrees === '') return '';
   const value = Number(degrees);
   if (!Number.isFinite(value)) return fallbackWeather.windDirection;
   const labels = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-  return labels[Math.round(value / 22.5) % labels.length];
+  return labels[((Math.round(value / 22.5) % labels.length) + labels.length) % labels.length];
 }
 
 function getWeatherDescription(code, isDay) {
@@ -146,11 +164,13 @@ function getWeatherDescription(code, isDay) {
 }
 
 function roundNumber(value, fallback) {
+  if (value == null || value === '') return fallback;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.round(numeric) : fallback;
 }
 
 function clampPercentage(value, fallback) {
+  if (value == null || value === '') return fallback;
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return Math.min(100, Math.max(0, Math.round(numeric)));

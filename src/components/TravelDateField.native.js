@@ -41,7 +41,6 @@ export default function TravelDateField({ value, onChange, style, error }) {
           value={dateValue}
           mode="date"
           display="calendar"
-          initialInputMode="calendar"
           startOnYearSelection
           onValueChange={(event, selectedDate) => selectDate(selectedDate)}
           onDismiss={() => setOpen(false)}
@@ -63,7 +62,7 @@ export default function TravelDateField({ value, onChange, style, error }) {
                 accentColor={theme.colors.primary}
                 themeVariant={theme.dark ? 'dark' : 'light'}
               />
-              <Pressable accessibilityRole="button" accessibilityLabel="Close date picker" onPress={() => setOpen(false)} style={styles.doneButton}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Confirm travel date" onPress={() => { onChange(formatDate(dateValue)); setOpen(false); }} style={styles.doneButton}>
                 <Text style={[styles.doneText, { color: theme.colors.primary }]}>Done</Text>
               </Pressable>
             </View>

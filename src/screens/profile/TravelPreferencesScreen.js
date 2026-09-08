@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../../context/AppContext';
 import AppHeader, { goToDashboard } from '../../components/AppHeader';
@@ -6,6 +6,8 @@ import AppButton from '../../components/AppButton';
 import CategoryChip from '../../components/CategoryChip';
 import Screen from '../../components/Screen';
 import { saveTravelerPreferences } from '../../services/authService';
+import { validatePreferenceForm } from '../../utils/authValidation';
+import { redirectToLogin } from '../../utils/guestAccess';
 
 const groups = [
   { field: 'places', title: 'Places you enjoy', multi: true, options: ['Nature', 'Mountains', 'Churches', 'Museums', 'Historical', 'Food', 'Shopping', 'Events', 'Photography', 'Parks', 'Family Friendly'] },
@@ -16,18 +18,25 @@ const groups = [
 ];
 
 export default function TravelPreferencesScreen({ navigation }) {
-  const { firebaseUser, theme, preferences, setPreferences } = useApp();
+  const { firebaseUser, travelerReady, backendErrors, isGuestMode, theme, preferences, setPreferences } = useApp();
   const [draft, setDraft] = useState(preferences);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const choose = (group, option) => setDraft((current) => ({ ...current, [group.field]: group.multi
+  const edited = useRef(false);
+  useEffect(() => { if (!edited.current) setDraft(preferences); }, [preferences]);
+  const choose = (group, option) => { edited.current = true; setDraft((current) => ({ ...current, [group.field]: group.multi
     ? current[group.field].includes(option) ? current[group.field].filter((item) => item !== option) : [...current[group.field], option]
-    : option }));
+    : option })); };
   const save = async () => {
+    if (isGuestMode || !firebaseUser || firebaseUser.isAnonymous) { redirectToLogin(navigation, 'Please log in to save your preferences.'); return; }
+    if (saving) return;
+    if (!travelerReady) { setError(backendErrors.auth || 'Please wait for your saved preferences to load.'); return; }
+    const errors = validatePreferenceForm(draft);
+    if (errors.length) { setError(errors.join(' ')); return; }
     setSaving(true);
     setError('');
     try {
-      if (firebaseUser?.uid && !firebaseUser.isAnonymous) await saveTravelerPreferences(firebaseUser.uid, draft);
+      await saveTravelerPreferences(firebaseUser.uid, draft);
       setPreferences(draft);
       navigation.goBack();
     } catch (saveError) {

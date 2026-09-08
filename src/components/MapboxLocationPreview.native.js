@@ -11,6 +11,7 @@ let mapboxLoadError = null;
 try {
   const mapboxModule = require('@rnmapbox/maps');
   Mapbox = mapboxModule.default || mapboxModule;
+  if (getMapboxAccessToken()) Mapbox.setAccessToken(getMapboxAccessToken());
 } catch (error) {
   mapboxLoadError = error;
 }
@@ -27,10 +28,6 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
     ],
     [hasPlace, place?.latitude, place?.longitude]
   );
-
-  if (Mapbox?.setAccessToken && accessToken) {
-    Mapbox.setAccessToken(accessToken);
-  }
 
   if (!Mapbox?.MapView || !Mapbox?.Camera || !Mapbox?.PointAnnotation) {
     return (

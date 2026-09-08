@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import AppTextInput from './AppTextInput';
 
-export default function VisitTimeField({ value, onChange, style, error }) {
+export default function VisitTimeField({ value, onChange, style, error, compact = false }) {
   const { theme } = useApp();
   const [open, setOpen] = useState(false);
   const timeValue = useMemo(() => parseTimeValue(value), [value]);
@@ -24,7 +24,9 @@ export default function VisitTimeField({ value, onChange, style, error }) {
   return (
     <View style={style}>
       <Pressable accessibilityRole="button" accessibilityLabel="Open visit time picker" onPress={() => setOpen(true)}>
-        <View pointerEvents="none">
+        {compact ? <View style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 8, borderColor: theme.colors.border }}>
+          <Text style={{ color: theme.colors.text, fontSize: 12 }}>{value || 'Pick time'}</Text>
+        </View> : <View pointerEvents="none">
           <AppTextInput
             label="Visit Time"
             value={value}
@@ -33,7 +35,7 @@ export default function VisitTimeField({ value, onChange, style, error }) {
             editable={false}
             error={error}
           />
-        </View>
+        </View>}
       </Pressable>
 
       {Platform.OS === 'android' && open ? (
@@ -65,7 +67,7 @@ export default function VisitTimeField({ value, onChange, style, error }) {
                 accentColor={theme.colors.primary}
                 themeVariant={theme.dark ? 'dark' : 'light'}
               />
-              <Pressable accessibilityRole="button" accessibilityLabel="Close time picker" onPress={() => setOpen(false)} style={styles.doneButton}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Confirm visit time" onPress={() => { onChange(formatTime(timeValue)); setOpen(false); }} style={styles.doneButton}>
                 <Text style={[styles.doneText, { color: theme.colors.primary }]}>Done</Text>
               </Pressable>
             </View>

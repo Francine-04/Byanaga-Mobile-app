@@ -6,9 +6,12 @@ import AppButton from './AppButton';
 import AppCard from './AppCard';
 import PlaceholderImage from './PlaceholderImage';
 import Rating from './Rating';
+import useBookmarkAction from '../hooks/useBookmarkAction';
 
 export default function RestaurantCard({ restaurant, compact = false, showActions = true, onPress, style }) {
-  const { theme } = useApp();
+  const { theme, bookmarks } = useApp();
+  const toggleBookmark = useBookmarkAction();
+  const saved = bookmarks.includes(restaurant.id);
 
   return (
     <AppCard accessibilityLabel={`Open ${restaurant.name}`} onPress={onPress} style={[styles.card, compact && styles.compactCard, style]}>
@@ -38,8 +41,8 @@ export default function RestaurantCard({ restaurant, compact = false, showAction
         ) : null}
       </View>
       {compact ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`Save ${restaurant.name}`} style={styles.bookmark}>
-          <Ionicons name="bookmark-outline" size={20} color={theme.colors.text} />
+        <Pressable accessibilityRole="button" accessibilityLabel={`${saved ? 'Unsave' : 'Save'} ${restaurant.name}`} accessibilityState={{ selected: saved }} onPress={(event) => { event.stopPropagation(); toggleBookmark(restaurant.id); }} style={styles.bookmark}>
+          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? theme.colors.primary : theme.colors.text} />
         </Pressable>
       ) : null}
     </AppCard>

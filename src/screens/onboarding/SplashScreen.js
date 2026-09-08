@@ -1,13 +1,18 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import BrandMark from '../../components/BrandMark';
 
 export default function SplashScreen({ navigation }) {
-  const { authReady, firebaseUser, isLoggedIn, theme } = useApp();
+  const { authReady, firebaseUser, isLoggedIn, travelerReady, onboardingStep, backendErrors, theme } = useApp();
+  const [restoreTimedOut, setRestoreTimedOut] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.94)).current;
+  useEffect(() => {
+    const timer = setTimeout(() => setRestoreTimedOut(true), 12000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -15,12 +20,18 @@ export default function SplashScreen({ navigation }) {
       Animated.spring(scale, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true }),
     ]).start();
 
-    if (!authReady) return undefined;
-
-    const nextScreen = isLoggedIn && firebaseUser && !firebaseUser.isAnonymous ? 'Main' : 'Onboarding1';
-    const timer = setTimeout(() => navigation.replace(nextScreen), 1700);
+    if (!authReady && !restoreTimedOut) return undefined;
+    const returning = isLoggedIn && firebaseUser && !firebaseUser.isAnonymous;
+    if (returning && !travelerReady && !backendErrors.auth && !restoreTimedOut) return undefined;
+    const timer = setTimeout(() => {
+      if (!authReady || (returning && !travelerReady)) {
+        navigation.replace('Auth', { screen: 'Login', params: { message: backendErrors.auth || 'Unable to restore your profile. Check your connection and log in again.' } });
+      } else if (!returning) navigation.replace('Onboarding1');
+      else if (onboardingStep === 'preferences') navigation.replace('Auth', { screen: 'RegisterStep2', params: { socialOnboarding: true } });
+      else navigation.replace(onboardingStep === 'location' ? 'LocationPermission' : 'Main');
+    }, 1700);
     return () => clearTimeout(timer);
-  }, [authReady, fade, firebaseUser, isLoggedIn, navigation, scale]);
+  }, [authReady, fade, firebaseUser, isLoggedIn, navigation, scale, travelerReady, onboardingStep, backendErrors.auth, restoreTimedOut]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.dark ? theme.colors.background : theme.colors.surface }]}>

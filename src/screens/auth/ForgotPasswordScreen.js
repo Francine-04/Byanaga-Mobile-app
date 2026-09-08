@@ -313,7 +313,7 @@ function VerifyStep({ email, error, green, link, loading, onChangeLink, onResend
       <Text style={[styles.description, { color: theme.colors.textMuted }]}>We sent a secure reset link to <Text style={[styles.emphasis, { color: theme.colors.text }]}>{maskEmail(email)}</Text>. Open it to verify your account.</Text>
       <View style={[styles.notice, { backgroundColor: theme.colors.primarySoft, borderColor: green }]}>
         <Ionicons name="shield-checkmark-outline" size={20} color={green} />
-        <Text style={[styles.noticeText, { color: theme.colors.text }]}>The email link opens this screen automatically. You can also paste the complete link below.</Text>
+        <Text style={[styles.noticeText, { color: theme.colors.text }]}>Reset your password using the secure email page, or paste the complete link below to continue here.</Text>
       </View>
       <AppTextInput
         accessibilityLabel="Password reset link"

@@ -1,14 +1,15 @@
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { getPlaceImage } from '../data/placeImages';
 import { getBackendImage, getBackendImages } from '../utils/backendImages';
 import { formatEventDateRange, formatEventTimeRange, toEventDate } from '../utils/eventDate';
 import { db } from './firebaseApp';
+import { manilaDate } from '../utils/travelSchedule';
 
 const ACTIVE_STATUSES = new Set(['upcoming', 'ongoing']);
 
 export function subscribeToDashboardEvents(onEvents, onError) {
   return onSnapshot(
-    collection(db, 'events'),
+    query(collection(db, 'events'), where('status', 'in', ['upcoming', 'ongoing'])),
     (snapshot) => {
       const events = snapshot.docs
         .map((doc) => normalizeEvent(doc.id, doc.data()))
@@ -35,7 +36,7 @@ export function createEventNotification(event) {
 function normalizeEvent(id, data = {}) {
   const startDate = toEventDate(data.startDate);
   const endDate = toEventDate(data.endDate) || startDate;
-  const status = String(data.status || 'upcoming').toLowerCase();
+  const status = String(data.status || '').toLowerCase();
   const title = cleanText(data.title) || 'Untitled Event';
   const venue = cleanText(data.location || data.venue) || 'Naga City';
   const date = formatEventDateRange(startDate, endDate);
@@ -77,12 +78,9 @@ function isPublishedUpcoming(event) {
   }
 
   if (!event.endDate) {
-    return true;
+    return false;
   }
-
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return event.endDate >= startOfToday;
+  return manilaDate(event.endDate) >= manilaDate();
 }
 
 function toNumber(value) {

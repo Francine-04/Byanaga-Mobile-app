@@ -55,6 +55,7 @@ function setup(initialRecord = null) {
     'firebase/auth': authModule,
     'firebase/database': databaseModule,
     './firebaseApp': { auth: {}, realtimeDb: {} },
+    '../utils/travelerPreferences': require('./helpers/load.cjs').createLoader()('src/utils/travelerPreferences.js'),
     '../utils/authValidation': {
       normalizeEmail: (value) => String(value || '').trim().toLowerCase(),
       isGmailAddress: () => true,
@@ -76,7 +77,7 @@ test('registration saves the traveler profile and preferences under the authenti
   const write = calls.find(([method]) => method === 'set');
   assert.equal(write[1], 'users/tourist-1');
   assert.equal(write[2].role, 'tourist');
-  assert.deepEqual(write[2].preferences.places, ['Food']);
+  assert.deepEqual(Array.from(write[2].preferences.places), ['Food']);
   assert.equal(Object.hasOwn(write[2], 'password'), false);
   assert.equal(result.record.userId, 'tourist-1');
 });

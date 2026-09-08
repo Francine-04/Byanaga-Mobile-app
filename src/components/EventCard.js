@@ -5,9 +5,12 @@ import { useApp } from '../context/AppContext';
 import AppButton from './AppButton';
 import AppCard from './AppCard';
 import PlaceholderImage from './PlaceholderImage';
+import useBookmarkAction from '../hooks/useBookmarkAction';
 
 export default function EventCard({ event, compact = false, showActions = true, style }) {
-  const { theme } = useApp();
+  const { theme, bookmarks } = useApp();
+  const toggleBookmark = useBookmarkAction();
+  const saved = bookmarks.includes(event.id);
 
   return (
     <AppCard style={[styles.card, compact && styles.compactCard, style]}>
@@ -34,8 +37,8 @@ export default function EventCard({ event, compact = false, showActions = true, 
         ) : null}
       </View>
       {compact ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`Bookmark ${event.title}`} style={styles.bookmark}>
-          <Ionicons name="bookmark-outline" size={20} color={theme.colors.text} />
+        <Pressable accessibilityRole="button" accessibilityLabel={`${saved ? 'Unsave' : 'Bookmark'} ${event.title}`} accessibilityState={{ selected: saved }} onPress={() => toggleBookmark(event.id)} style={styles.bookmark}>
+          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? theme.colors.primary : theme.colors.text} />
         </Pressable>
       ) : null}
     </AppCard>

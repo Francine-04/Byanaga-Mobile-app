@@ -11,7 +11,7 @@ export default function ProfilePortrait({ navigation, profile, onPhotoSelected, 
   const [error, setError] = useState('');
   const guest = isGuestMode || !firebaseUser || firebaseUser.isAnonymous;
   const choose = async (field) => {
-    if (!editable || selecting) return;
+    if (!editable || disabled || selecting) return;
     if (guest) {
       setIsGuestMode(false);
       setIsLoggedIn(false);
@@ -22,7 +22,7 @@ export default function ProfilePortrait({ navigation, profile, onPhotoSelected, 
     setSelecting(field);
     try {
       const ImagePicker = await import('expo-image-picker');
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 1 });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 0.8 });
       if (result.canceled) return;
       const asset = result.assets?.[0];
       if (!asset?.uri) throw new Error('The selected photo could not be read. Please choose it again.');

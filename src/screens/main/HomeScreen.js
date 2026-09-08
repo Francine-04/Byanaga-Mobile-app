@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
+import useBookmarkAction from '../../hooks/useBookmarkAction';
 import { matchByPreferences } from '../../utils/preferenceMatching';
 import { isEventInCurrentWeek } from '../../utils/eventDate';
+import { getFirstName, getTimeGreeting } from '../../utils/travelerGreeting';
 import AccommodationCard from '../../components/AccommodationCard';
 import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
@@ -27,7 +29,6 @@ export default function HomeScreen({ navigation }) {
     isGuestMode,
     profile,
     bookmarks,
-    toggleBookmark,
     tourismEvents,
     eventsSource,
     eventsError,
@@ -42,6 +43,7 @@ export default function HomeScreen({ navigation }) {
     weatherError,
     refreshWeather,
   } = useApp();
+  const toggleBookmark = useBookmarkAction();
   const [now, setNow] = useState(() => new Date());
   const featured = matchByPreferences(isGuestMode ? {} : preferences, destinations, weather).slice(0, 3);
   const homeEvents = useMemo(
@@ -54,7 +56,8 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60 * 1000);
-    return () => clearInterval(timer);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') setNow(new Date()); });
+    return () => { clearInterval(timer); subscription.remove(); };
   }, []);
 
   return (
@@ -224,14 +227,16 @@ export default function HomeScreen({ navigation }) {
         <SectionHeader title="Popular Restaurants" onPress={() => navigation.navigate('Restaurants')} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {restaurants.map((restaurant) => (
-            <RestaurantCard key={restaurant.id} restaurant={restaurant} showActions={false} />
+            <RestaurantCard key={restaurant.id} restaurant={restaurant} showActions={false}
+              onPress={() => restaurant.dashboardId ? navigation.navigate('EstablishmentDetails', { establishmentId: restaurant.dashboardId }) : navigation.navigate('DestinationDetails', { destination: restaurant })} />
           ))}
         </ScrollView>
 
         <SectionHeader title="Accommodations" onPress={() => navigation.navigate('Accommodations')} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {accommodations.map((accommodation) => (
-            <AccommodationCard key={accommodation.id} accommodation={accommodation} showActions={false} />
+            <AccommodationCard key={accommodation.id} accommodation={accommodation} showActions={false}
+              onPress={() => accommodation.sourceCollection === 'business_profiles' ? navigation.navigate('EstablishmentDetails', { establishmentId: accommodation.dashboardId }) : navigation.navigate('DestinationDetails', { destination: accommodation })} />
           ))}
         </ScrollView>
 
@@ -281,7 +286,7 @@ function QuickAccess({ icon, label, onPress }) {
     >
       <Ionicons name={icon} size={25} color={theme.colors.primary} />
       <Text style={[styles.quickLabel, { color: theme.colors.text }]} numberOfLines={2}>
-        {label}
+        {label === 'Establishments' ? 'Local Places' : label}
       </Text>
     </Pressable>
   );
@@ -305,33 +310,6 @@ function EventWeekState({ source, hasError }) {
       </View>
     </AppCard>
   );
-}
-
-function getFirstName(profile) {
-  const savedFirstName = String(profile?.firstName || '').trim();
-  if (savedFirstName) return savedFirstName;
-
-  const fullName = String(profile?.name || '').trim();
-  return fullName.split(/\s+/).filter(Boolean)[0] || 'Traveler';
-}
-
-function getTimeGreeting(date) {
-  const hour = getManilaHour(date);
-  if (hour >= 0 && hour < 12) return 'GOOD MORNING,';
-  if (hour >= 12 && hour < 18) return 'GOOD AFTERNOON,';
-  return 'GOOD EVENING,';
-}
-
-function getManilaHour(date) {
-  try {
-    return Number(new Intl.DateTimeFormat('en-US', {
-      hour: '2-digit',
-      hourCycle: 'h23',
-      timeZone: 'Asia/Manila',
-    }).format(date));
-  } catch {
-    return date.getHours();
-  }
 }
 
 function toTitleCase(value) {
@@ -431,7 +409,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   quickLabel: {
     marginTop: 8,

@@ -30,7 +30,7 @@ export default function TravelDateField({ value, onChange, style, error }) {
 
   return (
     <View style={style}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Open travel date calendar" onPress={() => setOpen(true)}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open travel date calendar" onPress={() => { setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)); setOpen(true); }}>
         <View pointerEvents="none">
           <AppTextInput label="Travel Date" value={value} placeholder="Select travel date" rightIcon="calendar-outline" editable={false} error={error} />
         </View>

@@ -20,12 +20,15 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
   const mapRef = useRef(null);
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const accessToken = getMapboxAccessToken();
   const selectedCenter = useMemo(() => getSelectedZoneLngLat(zones, selectedZoneId), [selectedZoneId, zones]);
   const featureCollection = useMemo(
     () => heatZonesToFeatureCollection(zones, (zone) => getZoneColor(theme, zone.colorKey)),
     [theme, zones]
   );
+  const latest = useRef(null);
+  latest.current = { featureCollection, selectedZoneId, zones, onSelectZone };
 
   useEffect(() => {
     ensureMapboxBaseStyles();
@@ -37,6 +40,7 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
     }
 
     let resizeTimer = null;
+    let loadTimer = null;
 
     try {
       setMapError(null);
@@ -53,14 +57,18 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
       });
 
       mapRef.current = map;
+      loadTimer = window.setTimeout(() => { setMapLoading(false); setMapError('Map loading timed out. Check your connection and try again.'); }, 20000);
       map.once('load', () => {
-        addHeatmapLayers(map, featureCollection, selectedZoneId);
-        attachZonePressHandlers(map, zones, onSelectZone);
+        window.clearTimeout(loadTimer);
+        addHeatmapLayers(map, latest.current.featureCollection, latest.current.selectedZoneId);
+        attachZonePressHandlers(map, latest);
+        setMapError(null);
         setMapLoading(false);
         map.resize();
       });
       map.on('error', () => {
         if (!map.loaded()) {
+          window.clearTimeout(loadTimer);
           setMapLoading(false);
           setMapError('Live map could not load. Please check your connection and Mapbox token.');
         }
@@ -73,13 +81,14 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
     }
 
     return () => {
+      window.clearTimeout(loadTimer);
       if (resizeTimer) {
         window.clearTimeout(resizeTimer);
       }
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [accessToken]);
+  }, [accessToken, retryCount]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -109,13 +118,21 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
 
   if (!accessToken || mapError) {
     return (
-      <MapPlaceholder
+      <View>
+        <Text accessibilityRole="alert" style={{ color: theme.colors.danger, marginTop: 12, lineHeight: 20 }}>
+          {mapError || 'Mapbox token is missing from this build. The view below is a map preview.'}
+        </Text>
+        {accessToken ? <Pressable accessibilityRole="button" accessibilityLabel="Retry map" onPress={() => { setMapError(null); setRetryCount((value) => value + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ color: theme.colors.primary }}>Retry Map</Text>
+        </Pressable> : null}
+        <MapPlaceholder
         zones={zones}
         markers={markers}
         selectedZoneId={selectedZoneId}
         onSelectZone={onSelectZone}
         style={style}
-      />
+        />
+      </View>
     );
   }
 
@@ -207,12 +224,12 @@ function addHeatmapLayers(map, featureCollection, selectedZoneId) {
   });
 }
 
-function attachZonePressHandlers(map, zones, onSelectZone) {
+function attachZonePressHandlers(map, latest) {
   map.on('click', CENTER_LAYER_ID, (event) => {
     const zoneId = event?.features?.[0]?.properties?.id;
-    const selectedZone = zones.find((zone) => zone.id === zoneId);
+    const selectedZone = latest.current.zones.find((zone) => zone.id === zoneId);
     if (selectedZone) {
-      onSelectZone?.(selectedZone);
+      latest.current.onSelectZone?.(selectedZone);
     }
   });
   map.on('mouseenter', CENTER_LAYER_ID, () => {

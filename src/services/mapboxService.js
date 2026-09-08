@@ -2,7 +2,7 @@ import { NAGA_BOUNDS, NAGA_CENTER, isCoordinateInsideNagaCity, isValidCoordinate
 import { getPlaceImage } from '../data/placeImages';
 
 const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
-const MAPBOX_GEOCODING_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
+const MAPBOX_GEOCODING_URL = 'https://api.mapbox.com/search/geocode/v6/forward';
 const MAPBOX_STYLE_URL = 'mapbox://styles/mapbox/streets-v12';
 
 const PROXIMITY = `${NAGA_CENTER.longitude},${NAGA_CENTER.latitude}`;
@@ -12,17 +12,6 @@ const BBOX = [
   NAGA_BOUNDS.maxLongitude,
   NAGA_BOUNDS.maxLatitude,
 ].join(',');
-
-const CATEGORY_TERMS = {
-  All: ['tourist attraction', 'church', 'restaurant', 'hotel', 'park', 'museum', 'mall', 'event venue'],
-  Nature: ['park', 'nature attraction', 'ecological park'],
-  Church: ['church', 'basilica', 'cathedral', 'chapel'],
-  Culture: ['museum', 'heritage landmark', 'historical landmark', 'tourist attraction'],
-  Food: ['restaurant', 'cafe', 'food'],
-  Shopping: ['mall', 'shopping center', 'store'],
-  Accommodation: ['hotel', 'resort', 'inn', 'accommodation'],
-  Events: ['event venue', 'coliseum', 'civic center', 'convention'],
-};
 
 export function hasMapboxAccessToken() {
   return Boolean(MAPBOX_ACCESS_TOKEN);
@@ -37,22 +26,15 @@ export function getMapboxStyleUrl() {
 }
 
 export async function searchMapboxPlaces({ query = '', category = 'All', limit = 12 } = {}) {
+  const trimmedQuery = String(query || '').trim();
+  // Geocoding supplies addresses, not POIs. Categories come from the BYANAGA catalog.
+  if (trimmedQuery.length < 3 || category !== 'All') return [];
   if (!MAPBOX_ACCESS_TOKEN) {
     throw new Error('Mapbox access token is missing. Set EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env.');
   }
 
-  const trimmedQuery = String(query || '').trim();
-  const searchLimit = Math.max(Number(limit) || 12, 12);
-  const searchTexts = getSearchTexts(trimmedQuery, category).slice(0, 8);
-  const requests = searchTexts.map((searchText) => fetchGeocodingFeatures({ searchText, limit: searchLimit }));
-  const responses = await Promise.allSettled(requests);
-  const features = responses.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
-  const failed = responses.filter((result) => result.status === 'rejected');
-
-  if (!features.length && failed.length === responses.length) {
-    const reason = failed[0]?.reason?.message || 'Mapbox search failed. Please try again.';
-    throw new Error(reason);
-  }
+  const searchLimit = Math.min(10, Math.max(1, Number(limit) || 10));
+  const features = await fetchGeocodingFeatures({ searchText: buildNagaSearchText(trimmedQuery), limit: searchLimit });
 
   return dedupePlaces(features.map((feature) => normalizeMapboxFeature(feature, category, Boolean(trimmedQuery))).filter(Boolean))
     .filter((place) => isCoordinateInsideNagaCity(place.latitude, place.longitude))
@@ -62,38 +44,41 @@ export async function searchMapboxPlaces({ query = '', category = 'All', limit =
 async function fetchGeocodingFeatures({ searchText, limit }) {
   const params = new URLSearchParams({
     access_token: MAPBOX_ACCESS_TOKEN,
+    q: searchText,
+    format: 'v5',
+    // Selected addresses can be stored in itineraries; temporary results cannot.
+    permanent: 'true',
     autocomplete: 'true',
     bbox: BBOX,
     country: 'ph',
     language: 'en',
     limit: String(Math.min(limit, 10)),
     proximity: PROXIMITY,
-    types: 'poi,address',
+    types: 'address',
   });
 
-  const payload = await fetchMapboxJson(`${MAPBOX_GEOCODING_URL}/${encodeURIComponent(searchText)}.json?${params.toString()}`);
+  const payload = await fetchMapboxJson(`${MAPBOX_GEOCODING_URL}?${params.toString()}`);
   const features = Array.isArray(payload?.features) ? payload.features : [];
   return features;
 }
 
 async function fetchMapboxJson(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Mapbox search failed (${response.status}). Please try again.`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(response.status === 403
+        ? 'Mapbox address search is not authorized. Check token restrictions and permanent geocoding access. BYANAGA places are still available.'
+        : `Mapbox address search failed (${response.status}). Please try again.`);
+    }
+    return await response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('Mapbox address search timed out. Please try again.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-
-  return response.json();
-}
-
-function getSearchTexts(query, category) {
-  const categoryTerms = CATEGORY_TERMS[category] || CATEGORY_TERMS.All;
-
-  if (query) {
-    const terms = category === 'All' ? [query] : [query, ...categoryTerms.map((term) => `${query} ${term}`)];
-    return terms.map(buildNagaSearchText);
-  }
-
-  return categoryTerms.map(buildNagaSearchText);
 }
 
 function buildNagaSearchText(value) {
@@ -125,7 +110,7 @@ function normalizeMapboxFeature(feature, selectedCategory, hasQuery) {
   const placeId = String(feature?.id || properties.mapbox_id || `${latitude.toFixed(6)},${longitude.toFixed(6)}`);
   const name = cleanText(feature?.text || properties.name || feature?.place_name || 'Unnamed destination');
   const address = cleanText(feature?.place_name || context.map((item) => item.text).filter(Boolean).join(', ') || 'Naga City, Camarines Sur');
-  const category = selectedCategory === 'All' ? inferCategory(feature) : selectedCategory;
+  const category = 'Address';
 
   return {
     id: `mapbox-${placeId}`,

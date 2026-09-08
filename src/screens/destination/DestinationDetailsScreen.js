@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
+import useBookmarkAction from '../../hooks/useBookmarkAction';
 import { goToDashboard, goToMain } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import CategoryChip from '../../components/CategoryChip';
@@ -12,7 +13,8 @@ import Screen from '../../components/Screen';
 const tabs = ['Overview', 'Photos', 'Reviews', 'Nearby'];
 
 export default function DestinationDetailsScreen({ navigation, route }) {
-  const { theme, bookmarks, toggleBookmark, destinations, weather } = useApp();
+  const { theme, bookmarks, destinations, weather } = useApp();
+  const toggleBookmark = useBookmarkAction();
   const destination = route.params?.destination || destinations[0];
   const [message, setMessage] = useState('');
   const bookmarked = bookmarks.includes(destination.id);

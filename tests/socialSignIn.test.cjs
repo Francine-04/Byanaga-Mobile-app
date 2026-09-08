@@ -22,6 +22,7 @@ function setup({ existing = null, failure, provider = 'google' } = {}) {
     },
     './firebaseApp': { auth: {}, realtimeDb: {} },
     '../utils/authValidation': {},
+    '../utils/travelerPreferences': require('./helpers/load.cjs').createLoader()('src/utils/travelerPreferences.js'),
   };
   const exports = {};
   vm.runInNewContext(code, { exports, require: (id) => dependencies[id] });
@@ -51,5 +52,15 @@ test('denied reads and writes fail explicitly rather than reporting a saved prof
   for (const failure of ['read', 'write']) {
     const { service } = setup({ failure });
     await assert.rejects(service.signInWithWebSocialProvider('google'), (error) => error.code === 'auth/profile-permission-denied' && error.message.includes('Database permissions'));
+  }
+});
+
+test('Google and Facebook login preserve edited names and intentionally cleared profile fields', async () => {
+  for (const provider of ['google', 'facebook']) {
+    const existing = { name: 'Ana', firstName: 'Ana', lastName: '', bio: '', phone: '', nationality: '', image: 'saved-avatar', coverImage: 'saved-cover' };
+    const { service } = setup({ existing, provider });
+    const { record } = await service.signInWithWebSocialProvider(provider);
+    const { profile } = service.travelerRecordToAppState(record);
+    for (const [field, value] of Object.entries(existing)) assert.equal(profile[field], value, field);
   }
 });

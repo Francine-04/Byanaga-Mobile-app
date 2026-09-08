@@ -9,6 +9,7 @@ export default function WeatherHeroCard({ theme, weather, weatherError, onRefres
   const [cardWidth, setCardWidth] = useState(0);
   const { width } = useWindowDimensions();
   const compact = cardWidth ? cardWidth < 700 : width < 700;
+  const tight = cardWidth ? cardWidth < 310 : width < 350;
   const display = useMemo(() => normalizeWeather(weather), [weather]);
 
   const handleRefresh = async () => {
@@ -29,7 +30,6 @@ export default function WeatherHeroCard({ theme, weather, weatherError, onRefres
       onLayout={(event) => setCardWidth(event.nativeEvent.layout.width)}
       style={[styles.card, { shadowColor: theme.colors.shadow }, compact && styles.cardCompact, style]}
     >
-      <View pointerEvents="none" style={styles.skyGlow} />
       <View pointerEvents="none" style={[styles.mountainBand, styles.mountainBack]} />
       <View pointerEvents="none" style={[styles.mountainBand, styles.mountainMiddle]} />
       <View pointerEvents="none" style={[styles.mountainBand, styles.mountainFront]} />
@@ -38,39 +38,39 @@ export default function WeatherHeroCard({ theme, weather, weatherError, onRefres
         accessibilityRole="button"
         accessibilityLabel="Refresh Naga City weather"
         onPress={handleRefresh}
-        style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshPressed]}
+        style={({ pressed }) => [styles.refreshButton, compact && styles.compactRefresh, pressed && styles.refreshPressed]}
       >
         {refreshing ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="navigate-outline" size={24} color="#FFFFFF" />}
       </Pressable>
 
-      {compact ? <CompactLayout display={display} weatherError={weatherError} /> : <WideLayout display={display} weatherError={weatherError} />}
+      {compact ? <CompactLayout display={display} weatherError={weatherError} tight={tight} /> : <WideLayout display={display} weatherError={weatherError} />}
     </LinearGradient>
   );
 }
 
-function CompactLayout({ display, weatherError }) {
+function CompactLayout({ display, weatherError, tight }) {
   return (
     <View style={styles.compactContent}>
-      <View style={styles.compactTop}>
-        <View style={styles.compactConditionColumn}>
-          <WeatherGlyph condition={display.condition} isDay={display.isDay} size={82} />
-          <Text numberOfLines={2} style={[styles.conditionText, styles.compactConditionText]}>{display.condition}</Text>
+      <View style={[styles.compactTop, tight && styles.compactTopTight]}>
+        <View style={[styles.compactConditionColumn, tight && styles.compactConditionColumnTight]}>
+          <WeatherGlyph condition={display.condition} isDay={display.isDay} size={tight ? 74 : 82} />
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.conditionText, styles.compactConditionText, tight && styles.compactConditionTextTight]}>{display.condition}</Text>
         </View>
 
         <View style={styles.compactTemperatureColumn}>
-          <Text adjustsFontSizeToFit numberOfLines={1} style={[styles.temperatureText, styles.compactTemperatureText]}>
-            {display.temperatureLabel}
-          </Text>
+          <TemperatureValue value={display.temperature} compact tight={tight} />
           <View style={styles.locationRow}>
             <Ionicons name="location" size={19} color="#FFFFFF" />
-            <Text numberOfLines={1} style={styles.cityText}>{display.city}</Text>
+            <Text numberOfLines={1} style={[styles.cityText, styles.compactCityText, tight && styles.compactCityTextTight]}>{display.city}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.metricStrip}>
         <Metric icon="water-outline" label="Humidity" value={`${display.humidity}%`} />
+        <View style={styles.metricDivider} />
         <Metric icon="swap-horizontal-outline" label="Wind" value={`${display.windSpeed} km/h`} detail={display.windDirection} />
+        <View style={styles.metricDivider} />
         <Metric icon="rainy-outline" label="Rain Chance" value={`${display.rainChance}%`} />
       </View>
       <WeatherStatus weatherError={weatherError} source={display.source} />
@@ -89,7 +89,7 @@ function WideLayout({ display, weatherError }) {
       <View style={styles.divider} />
 
       <View style={styles.wideTemperatureColumn}>
-        <Text adjustsFontSizeToFit numberOfLines={1} style={styles.temperatureText}>{display.temperatureLabel}</Text>
+        <TemperatureValue value={display.temperature} />
         <View style={styles.locationRow}>
           <Ionicons name="location" size={22} color="#FFFFFF" />
           <Text numberOfLines={1} style={styles.cityText}>{display.city}</Text>
@@ -108,12 +108,30 @@ function WideLayout({ display, weatherError }) {
   );
 }
 
+function TemperatureValue({ value, compact = false, tight = false }) {
+  const available = value !== '--' && Number.isFinite(Number(value));
+  const label = available ? `${Math.round(Number(value))} degrees Celsius` : 'Temperature unavailable';
+
+  return (
+    <View accessible accessibilityLabel={label} style={styles.temperatureRow}>
+      <Text maxFontSizeMultiplier={1.15} numberOfLines={1} style={[styles.temperatureNumber, compact && styles.compactTemperatureNumber, tight && styles.tightTemperatureNumber]}>
+        {available ? Math.round(Number(value)) : '--'}
+      </Text>
+      {available ? (
+        <Text maxFontSizeMultiplier={1.15} numberOfLines={1} style={[styles.temperatureUnit, compact && styles.compactTemperatureUnit, tight && styles.tightTemperatureUnit]}>
+          {'\u00B0C'}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function Metric({ icon, label, value, detail, wide = false }) {
   return (
     <View style={[styles.metric, wide && styles.metricWide]}>
-      <Ionicons name={icon} size={wide ? 30 : 20} color="#FFFFFF" />
-      <View style={styles.metricCopy}>
-        <Text numberOfLines={1} style={[styles.metricLabel, wide && styles.metricLabelWide]}>{label}</Text>
+      <Ionicons name={icon} size={wide ? 30 : 24} color="#FFFFFF" />
+      <View style={[styles.metricCopy, wide && styles.metricCopyWide]}>
+        <Text numberOfLines={2} style={[styles.metricLabel, wide && styles.metricLabelWide]}>{label}</Text>
         <Text adjustsFontSizeToFit numberOfLines={1} style={[styles.metricValue, wide && styles.metricValueWide]}>{value}</Text>
         {detail ? <Text numberOfLines={1} style={styles.metricDetail}>{detail}</Text> : null}
       </View>
@@ -123,10 +141,9 @@ function Metric({ icon, label, value, detail, wide = false }) {
 
 function WeatherStatus({ weatherError, source }) {
   if (source === 'open-meteo' && !weatherError) return null;
-
   return (
-    <Text numberOfLines={1} style={styles.statusText}>
-      {weatherError ? 'Weather unavailable' : 'Sample weather'}
+    <Text numberOfLines={2} style={styles.statusText}>
+      {source === 'open-meteo' ? 'Last reading; refresh unavailable' : 'Weather unavailable. Please try again.'}
     </Text>
   );
 }
@@ -182,7 +199,7 @@ function normalizeWeather(weather) {
   const windSpeed = toNumber(next.windSpeed, fallbackWeather.windSpeed);
   const rainChance = toNumber(next.rainChance, fallbackWeather.rainChance);
   const rawLabel = String(next.temperatureLabel || '').trim();
-  const temperatureLabel = rawLabel
+  const temperatureLabel = rawLabel === '--' ? '--' : rawLabel
     ? (/c$/i.test(rawLabel) ? rawLabel.replace(/\s*\u00B0?\s*c$/i, '\u00B0C') : `${rawLabel}\u00B0C`)
     : `${temperature}\u00B0C`;
 
@@ -200,6 +217,7 @@ function normalizeWeather(weather) {
 }
 
 function toNumber(value, fallback) {
+  if (value == null || value === '') return '--';
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.round(numeric) : fallback;
 }
@@ -220,15 +238,6 @@ const styles = StyleSheet.create({
     minHeight: 242,
     padding: 16,
     borderRadius: 30,
-  },
-  skyGlow: {
-    position: 'absolute',
-    top: -26,
-    right: 34,
-    width: 170,
-    height: 128,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   mountainBand: {
     position: 'absolute',
@@ -270,6 +279,11 @@ const styles = StyleSheet.create({
   refreshPressed: {
     opacity: 0.75,
   },
+  compactRefresh: {
+    top: 10,
+    width: 44,
+    height: 44,
+  },
   compactContent: {
     flex: 1,
     justifyContent: 'center',
@@ -278,17 +292,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingRight: 58,
-    gap: 10,
+    gap: 14,
+    paddingTop: 2,
   },
   compactConditionColumn: {
-    width: 108,
+    width: 92,
     minWidth: 0,
+    alignItems: 'center',
+  },
+  compactTopTight: {
+    gap: 8,
+    paddingRight: 46,
+  },
+  compactConditionColumnTight: {
+    width: 82,
   },
   compactTemperatureColumn: {
     flex: 1,
     minWidth: 0,
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   wideContent: {
     flex: 1,
@@ -323,19 +345,57 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   compactConditionText: {
-    fontSize: 17,
-    lineHeight: 21,
+    width: '100%',
+    marginTop: 2,
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'center',
   },
-  temperatureText: {
+  compactConditionTextTight: {
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  temperatureRow: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  temperatureNumber: {
     color: '#FFFFFF',
-    fontSize: 58,
-    lineHeight: 66,
+    fontSize: 64,
+    lineHeight: 68,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  temperatureUnit: {
+    marginTop: 7,
+    marginLeft: 3,
+    color: '#FFFFFF',
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: '900',
   },
-  compactTemperatureText: {
-    fontSize: 50,
+  compactTemperatureNumber: {
+    fontSize: 58,
+    lineHeight: 64,
+  },
+  compactTemperatureUnit: {
+    marginTop: 6,
+    marginLeft: 2,
+    fontSize: 27,
+    lineHeight: 32,
+  },
+  tightTemperatureNumber: {
+    fontSize: 52,
     lineHeight: 58,
   },
+  tightTemperatureUnit: {
+    marginTop: 5,
+    fontSize: 23,
+    lineHeight: 28,
+  },
+  compactCityText: { fontSize: 16, lineHeight: 22 },
+  compactCityTextTight: { fontSize: 15, lineHeight: 21 },
   locationRow: {
     marginTop: 4,
     flexDirection: 'row',
@@ -350,19 +410,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   metricStrip: {
-    marginTop: 18,
+    marginTop: 20,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   metric: {
     flex: 1,
     minWidth: 0,
-    minHeight: 58,
-    borderRadius: 18,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.13)',
+    minHeight: 68,
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  metricDivider: {
+    width: 1,
+    height: 56,
+    backgroundColor: 'rgba(255,255,255,0.58)',
   },
   metricWide: {
     flexDirection: 'row',
@@ -377,12 +442,17 @@ const styles = StyleSheet.create({
   metricCopy: {
     minWidth: 0,
     flexShrink: 1,
+    alignItems: 'center',
+  },
+  metricCopyWide: {
+    alignItems: 'flex-start',
   },
   metricLabel: {
     color: 'rgba(255,255,255,0.86)',
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
+    textAlign: 'center',
   },
   metricLabelWide: {
     fontSize: 16,
@@ -391,9 +461,10 @@ const styles = StyleSheet.create({
   metricValue: {
     marginTop: 2,
     color: '#FFFFFF',
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 15,
+    lineHeight: 19,
     fontWeight: '900',
+    textAlign: 'center',
   },
   metricDetail: {
     marginTop: 1,
@@ -401,13 +472,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '900',
+    textAlign: 'center',
   },
   metricValueWide: {
     fontSize: 18,
     lineHeight: 24,
+    textAlign: 'left',
   },
   statusText: {
     marginTop: 8,
+    marginRight: 48,
     alignSelf: 'flex-start',
     color: 'rgba(255,255,255,0.88)',
     fontSize: 11,

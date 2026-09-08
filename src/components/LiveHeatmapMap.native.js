@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { getMapboxAccessToken, getMapboxStyleUrl } from '../services/mapboxService';
@@ -13,6 +13,7 @@ let mapboxLoadError = null;
 try {
   const mapboxModule = require('@rnmapbox/maps');
   Mapbox = mapboxModule.default || mapboxModule;
+  if (getMapboxAccessToken()) Mapbox.setAccessToken(getMapboxAccessToken());
 } catch (error) {
   mapboxLoadError = error;
 }
@@ -27,10 +28,6 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
     [theme, zones]
   );
 
-  if (Mapbox?.setAccessToken && accessToken) {
-    Mapbox.setAccessToken(accessToken);
-  }
-
   if (
     !Mapbox?.MapView ||
     !Mapbox?.Camera ||
@@ -41,13 +38,21 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
     mapboxLoadError
   ) {
     return (
-      <MapPlaceholder
+      <View>
+        <Text accessibilityRole="alert" style={{ color: theme.colors.danger, marginTop: 12, lineHeight: 20 }}>
+          {!accessToken ? 'Mapbox token is missing from this build.' : mapError || 'Mapbox requires a new native build, not Expo Go. The view below is a map preview.'}
+        </Text>
+        {mapError ? <Pressable accessibilityRole="button" accessibilityLabel="Retry map" onPress={() => setMapError(null)} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ color: theme.colors.primary }}>Retry Map</Text>
+        </Pressable> : null}
+        <MapPlaceholder
         zones={zones}
         markers={markers}
         selectedZoneId={selectedZoneId}
         onSelectZone={onSelectZone}
         style={style}
-      />
+        />
+      </View>
     );
   }
 

@@ -1,4 +1,5 @@
 import { findKnownPlace, nagaPlaces, normalizePlaceKey } from '../data/nagaPlaces';
+import { isCoordinateInsideNagaCity } from './nagaBoundary';
 
 const NAGA_BOUNDS = {
   minLatitude: 13.615,
@@ -13,7 +14,7 @@ export function deriveHeatZones({ visitors = [], destinations = [], events = [] 
   visitors.forEach((visitor) => {
     visitor.visitedDestinations?.forEach((value) => {
       const place = findDashboardOrKnownPlace(value, destinations);
-      if (!place) return;
+      if (!place || !isCoordinateInsideNagaCity(place.latitude, place.longitude)) return;
       const key = normalizePlaceKey(place.name || place.id);
       counts.set(key, {
         place,
@@ -27,7 +28,7 @@ export function deriveHeatZones({ visitors = [], destinations = [], events = [] 
       const visitCount = Number(destination.visitCount || 0);
       if (!visitCount) return;
       const place = findDashboardOrKnownPlace(destination.name || destination.dashboardId || destination.id, destinations);
-      if (!place) return;
+      if (!place || !isCoordinateInsideNagaCity(place.latitude, place.longitude)) return;
       const key = normalizePlaceKey(place.name || place.id);
       counts.set(key, { place, count: visitCount });
     });
@@ -37,7 +38,7 @@ export function deriveHeatZones({ visitors = [], destinations = [], events = [] 
     const attendance = Number(event.actualAttendance || event.expectedAttendance || 0);
     const latitude = Number(event.locationLat);
     const longitude = Number(event.locationLng);
-    if (!attendance || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    if (!attendance || !isCoordinateInsideNagaCity(latitude, longitude)) return;
 
     const place = {
       id: event.id,
@@ -63,6 +64,7 @@ export function deriveHeatZones({ visitors = [], destinations = [], events = [] 
 
       return {
         id: `heat-${normalizePlaceKey(place.id || place.name)}`,
+        destination: place,
         label: shortPlaceName(place.name),
         level: level.label,
         colorKey: level.colorKey,

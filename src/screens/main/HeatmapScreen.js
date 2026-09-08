@@ -8,7 +8,7 @@ import LiveHeatmapMap from '../../components/LiveHeatmapMap';
 import Screen from '../../components/Screen';
 
 export default function HeatmapScreen({ navigation }) {
-  const { theme, heatZones, backendStatus } = useApp();
+  const { theme, heatZones, backendStatus, backendErrors } = useApp();
   const [selectedZoneId, setSelectedZoneId] = useState(null);
   const selected = useMemo(() => (
     heatZones.find((zone) => zone.id === selectedZoneId) || heatZones[0]
@@ -27,11 +27,11 @@ export default function HeatmapScreen({ navigation }) {
       <LiveHeatmapMap
         zones={heatZones}
         markers={markers}
-        selectedZoneId={selected.id}
+        selectedZoneId={selected?.id}
         onSelectZone={(zone) => setSelectedZoneId(zone.id)}
         style={styles.map}
       />
-      <BottomSheet style={styles.sheet}>
+      {selected ? <BottomSheet style={styles.sheet}>
         <View style={styles.sheetHeader}>
           <View>
             <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{selected.label}</Text>
@@ -47,8 +47,10 @@ export default function HeatmapScreen({ navigation }) {
         <InfoRow label="Best Time to Visit" value={selected.bestTime} />
         <InfoRow label="Nearby Attractions" value={`${selected.nearbyCount || 5} places nearby`} />
         <InfoRow label="Suggested Alternative" value={selected.alternative} />
-        <AppButton title="Add to Itinerary" onPress={() => navigation.navigate('CreateItinerary')} style={styles.button} />
-      </BottomSheet>
+        <AppButton title="Add to Itinerary" onPress={() => navigation.navigate('CreateItinerary', { destination: selected.destination })} style={styles.button} />
+      </BottomSheet> : <Text style={{ color: theme.colors.textMuted, marginTop: 16, lineHeight: 22 }}>
+        {backendErrors.visitors || backendErrors.destinations ? 'Visit data could not load. Check your connection and backend permissions.' : 'No recorded visit activity yet. Published visit data will appear here.'}
+      </Text>}
     </Screen>
   );
 }
@@ -115,7 +117,7 @@ const styles = StyleSheet.create({
     aspectRatio: 0.86,
   },
   sheet: {
-    marginTop: -42,
+    marginTop: 12,
     padding: 16,
   },
   sheetHeader: {

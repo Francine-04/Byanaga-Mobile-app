@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import CategoryChip from './CategoryChip';
 import MapboxLocationPreview from './MapboxLocationPreview';
 import PlaceholderImage from './PlaceholderImage';
 import VisitTimeField from './VisitTimeField';
+import { visitTimeFields } from '../utils/travelSchedule';
 
 const filters = ['All', 'Nature', 'Church', 'Culture', 'Food', 'Shopping', 'Accommodation', 'Events'];
 
@@ -25,6 +26,7 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
   const [visitTime, setVisitTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const searchRequest = useRef(0);
 
   const collections = useMemo(
     () => ({ destinations, restaurants, accommodations, events: tourismEvents }),
@@ -32,6 +34,7 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
   );
 
   const runSearch = useCallback(async (nextCategory = category, nextQuery = query) => {
+    const request = ++searchRequest.current;
     setLoading(true);
     setError(null);
     setSelectedPlace(null);
@@ -42,27 +45,30 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
       collections,
       limit: 30,
     });
+    setResults(catalogPlaces);
 
     try {
       const mapboxPlaces = await searchMapboxPlaces({ query: nextQuery, category: nextCategory, limit: 20 });
+      if (request !== searchRequest.current) return;
       const places = mergeNagaPlaceResults(catalogPlaces, mapboxPlaces, 30);
       setResults(places);
       if (!places.length) {
         setError('No Naga City places found for this category.');
       }
     } catch (searchError) {
+      if (request !== searchRequest.current) return;
       const places = mergeNagaPlaceResults(catalogPlaces, 30);
       setResults(places);
-      if (!places.length) {
-        setError(searchError?.message || 'Unable to search Naga City places.');
-      }
+      setError(searchError?.message || 'Unable to search Naga City places.');
     } finally {
-      setLoading(false);
+      if (request === searchRequest.current) setLoading(false);
     }
   }, [category, collections, query]);
 
   useEffect(() => {
     if (!visible) {
+      searchRequest.current++;
+      setLoading(false);
       setQuery('');
       setCategory('All');
       setResults([]);
@@ -74,6 +80,8 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
 
     runSearch('All', '');
   }, [visible]);
+
+  useEffect(() => () => { searchRequest.current++; }, []);
 
   const selectPlace = (place) => {
     try {
@@ -92,15 +100,14 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
   };
 
   const addSelectedPlace = () => {
-    if (!selectedPlace || !visitTime.trim()) {
+    if (!selectedPlace || !visitTimeFields(visitTime)) {
       setError('Select a Naga City place and pick a visit time.');
       return;
     }
 
     onAdd({
       ...selectedPlace,
-      visitTime: visitTime.trim(),
-      displayTime: visitTime.trim(),
+      ...visitTimeFields(visitTime),
     });
   };
 

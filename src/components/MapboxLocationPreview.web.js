@@ -15,6 +15,7 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
   const markerRef = useRef(null);
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const accessToken = getMapboxAccessToken();
   const hasPlace = isValidCoordinate(place?.latitude, place?.longitude);
   const center = useMemo(
@@ -35,6 +36,7 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
     }
 
     let resizeTimer = null;
+    let loadTimer = null;
 
     try {
       setMapError(null);
@@ -51,12 +53,15 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
       });
 
       mapRef.current = map;
+      loadTimer = window.setTimeout(() => { setMapLoading(false); setMapError('Map loading timed out. Check your connection and retry.'); }, 20000);
       map.once('load', () => {
+        window.clearTimeout(loadTimer);
         setMapLoading(false);
         map.resize();
       });
       map.on('error', () => {
         if (!map.loaded()) {
+          window.clearTimeout(loadTimer);
           setMapLoading(false);
           setMapError('Mapbox map could not load. Please check your connection and Mapbox token.');
         }
@@ -69,6 +74,7 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
     }
 
     return () => {
+      window.clearTimeout(loadTimer);
       if (resizeTimer) {
         window.clearTimeout(resizeTimer);
       }
@@ -77,7 +83,7 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [accessToken]);
+  }, [accessToken, retryCount]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -102,7 +108,7 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
         .setLngLat(center)
         .addTo(map);
     }
-  }, [center, hasPlace, theme.colors.primary]);
+  }, [center, hasPlace, theme.colors.primary, retryCount]);
 
   if (!accessToken) {
     return (
@@ -116,7 +122,12 @@ export default function MapboxLocationPreview({ place, height = 220, style }) {
   }
 
   if (mapError) {
-    return <MapFallback height={height} style={style} message={mapError} place={place} />;
+    return <View>
+      <MapFallback height={height} style={style} message={mapError} place={place} />
+      <Pressable accessibilityRole="button" accessibilityLabel="Retry location map" onPress={() => { setMapError(null); setRetryCount((value) => value + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}>
+        <Text style={{ color: theme.colors.primary }}>Retry Map</Text>
+      </Pressable>
+    </View>;
   }
 
   return (

@@ -15,9 +15,10 @@ import {
   updateProfile,
   verifyPasswordResetCode,
 } from 'firebase/auth';
-import { get, ref, serverTimestamp, set, update } from 'firebase/database';
+import { get, onValue, ref, runTransaction, serverTimestamp, set, update } from 'firebase/database';
 import { auth, realtimeDb } from './firebaseApp';
 import { isGmailAddress, isStrongPassword, normalizeEmail, passwordRuleText } from '../utils/authValidation';
+import { normalizePreferences } from '../utils/travelerPreferences';
 
 const USERS_PATH = 'users';
 export const AUTH_REQUIRED_ERROR_CODE = 'auth/required';
@@ -196,8 +197,22 @@ export async function loadTravelerRecord(userId) {
   return snapshot.exists() ? snapshot.val() : null;
 }
 
+export function subscribeToTravelerRecord(userId, onRecord, onError) {
+  return onValue(ref(realtimeDb, `${USERS_PATH}/${userId}`), (snapshot) => onRecord(snapshot.val()), onError);
+}
+
+export async function toggleTravelerBookmark(userId, placeId) {
+  const user = await ensureAuthenticatedUser();
+  if (user.uid !== userId) throw new Error('Your session changed. Please log in again.');
+  await runTransaction(ref(realtimeDb, `${USERS_PATH}/${userId}/bookmarks`), (value) => {
+    const bookmarks = Array.isArray(value) ? value : [];
+    return bookmarks.includes(placeId) ? bookmarks.filter((id) => id !== placeId) : [...bookmarks, placeId];
+  }, { applyLocally: false });
+}
+
 export async function saveTravelerPreferences(userId, preferences) {
-  if (!userId) throw new Error('Missing authenticated user.');
+  const user = await ensureAuthenticatedUser();
+  if (user.uid !== userId) throw new Error('Your session changed. Please log in again.');
   await update(ref(realtimeDb, `${USERS_PATH}/${userId}`), {
     preferences: normalizePreferences(preferences),
     updatedAt: serverTimestamp(),
@@ -205,22 +220,28 @@ export async function saveTravelerPreferences(userId, preferences) {
 }
 
 export async function saveTravelerProfile(userId, profile) {
-  if (!userId) throw new Error('Missing authenticated user.');
-  if (auth.currentUser?.uid === userId && profile.name) {
-    await updateProfile(auth.currentUser, { displayName: profile.name }).catch(() => {});
-  }
-
-  await update(ref(realtimeDb, `${USERS_PATH}/${userId}`), {
-    firstName: profile.firstName || splitName(profile.name).firstName,
-    lastName: profile.lastName || splitName(profile.name).lastName,
-    name: profile.name || '',
-    phone: profile.phone || '',
-    bio: profile.bio || '',
+  const user = await ensureAuthenticatedUser();
+  if (user.uid !== userId) throw new Error('Your session changed. Please log in again.');
+  const name = String(profile.name || '').trim();
+  if (!name) throw new Error('Please enter your full name.');
+  const fields = {
+    ...splitName(name),
+    name,
+    phone: String(profile.phone || '').trim(),
+    bio: String(profile.bio || '').trim(),
     coverImage: profile.coverImage || null,
     nationality: profile.nationality || '',
     image: profile.image || null,
+  };
+  await update(ref(realtimeDb, `${USERS_PATH}/${userId}`), {
+    ...fields,
     updatedAt: serverTimestamp(),
   });
+  // The database is authoritative; optional Auth metadata must not delay saving.
+  if (auth.currentUser?.uid === userId && auth.currentUser.displayName !== name) {
+    updateProfile(auth.currentUser, { displayName: name }).catch(() => {});
+  }
+  return { ...profile, ...fields };
 }
 
 export function travelerRecordToAppState(record, user) {
@@ -230,8 +251,8 @@ export function travelerRecordToAppState(record, user) {
     profile: {
       name,
       phone: record?.phone || '',
-      bio: record?.bio || 'I love exploring new places!',
-      nationality: record?.nationality || 'Filipino',
+      bio: record?.bio ?? 'I love exploring new places!',
+      nationality: record?.nationality ?? 'Filipino',
       image: record?.image || null,
       coverImage: record?.coverImage || null,
       email: record?.email || user?.email || '',
@@ -241,16 +262,6 @@ export function travelerRecordToAppState(record, user) {
       gender: record?.gender || '',
     },
     preferences: normalizePreferences(record?.preferences),
-  };
-}
-
-function normalizePreferences(preferences = {}) {
-  return {
-    places: Array.isArray(preferences.places) ? preferences.places : [],
-    activities: Array.isArray(preferences.activities) ? preferences.activities : [],
-    travelStyle: preferences.travelStyle || '',
-    budget: preferences.budget || '',
-    duration: preferences.duration || '',
   };
 }
 
@@ -343,8 +354,8 @@ async function completeSocialSignIn(credential, providerKey, profileOverrides = 
   } else {
     await update(userRef, stripUndefined({
       email: existing.email || socialProfile.email,
-      firstName: existing.firstName || socialProfile.firstName,
-      lastName: existing.lastName || socialProfile.lastName,
+      firstName: existing.firstName ?? splitName(existing.name || socialProfile.name).firstName,
+      lastName: existing.lastName ?? splitName(existing.name || socialProfile.name).lastName,
       name: existing.name || socialProfile.name,
       image: existing.image || socialProfile.image,
       authProvider: existing.authProvider || providerKey,

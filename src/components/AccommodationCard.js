@@ -6,9 +6,12 @@ import AppButton from './AppButton';
 import AppCard from './AppCard';
 import PlaceholderImage from './PlaceholderImage';
 import Rating from './Rating';
+import useBookmarkAction from '../hooks/useBookmarkAction';
 
 export default function AccommodationCard({ accommodation, compact = false, showActions = true, onPress, style }) {
-  const { theme } = useApp();
+  const { theme, bookmarks } = useApp();
+  const toggleBookmark = useBookmarkAction();
+  const saved = bookmarks.includes(accommodation.id);
 
   return (
     <AppCard accessibilityLabel={`Open ${accommodation.name}`} onPress={onPress} style={[styles.card, compact && styles.compactCard, style]}>
@@ -42,8 +45,8 @@ export default function AccommodationCard({ accommodation, compact = false, show
           <Text style={[styles.price, { color: theme.colors.text }]} numberOfLines={1}>
             {accommodation.price}
           </Text>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Save ${accommodation.name}`} style={styles.bookmark}>
-            <Ionicons name="bookmark-outline" size={18} color={theme.colors.text} />
+          <Pressable accessibilityRole="button" accessibilityLabel={`${saved ? 'Unsave' : 'Save'} ${accommodation.name}`} accessibilityState={{ selected: saved }} onPress={(event) => { event.stopPropagation(); toggleBookmark(accommodation.id); }} style={styles.bookmark}>
+            <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? theme.colors.primary : theme.colors.text} />
           </Pressable>
         </View>
       ) : null}

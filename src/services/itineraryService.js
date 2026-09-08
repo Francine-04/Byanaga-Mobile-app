@@ -7,28 +7,45 @@ import {
 } from '../utils/itineraryTitle';
 import { realtimeDb } from './firebaseApp';
 import { ensureAuthenticatedUser } from './authService';
+import { assertInsideNagaCity } from '../utils/nagaBoundary';
+import { parseTravelDate, visitTimeFields } from '../utils/travelSchedule';
+import { normalizePreferences } from '../utils/travelerPreferences';
 
 const ITINERARIES_PATH = 'itineraries';
 
-export async function saveItineraryToDatabase({ itineraryId, tripName, travelDate, status = 'Drafts', days = [], existingCreatedAt }) {
+export async function saveItineraryToDatabase({ itineraryId, tripName, travelDate, status = 'Drafts', days = [], recommendation }) {
   const user = await ensureAuthenticatedUser();
   const cleanTripName = normalizeItineraryTitle(tripName);
   if (!cleanTripName) {
     throw new Error('Trip name is required.');
   }
+  if (!['Drafts', 'Upcoming', 'Completed'].includes(status)) throw new Error('Invalid trip status.');
+  if ((travelDate || status !== 'Drafts') && !parseTravelDate(travelDate)) throw new Error('Travel date must be a valid YYYY-MM-DD date.');
+  if (status !== 'Drafts' && !days.some((day) => day.places?.length)) throw new Error('Add at least one place before saving your trip.');
+  const serializedDays = daysToRealtimeDatabase(days);
 
   await assertUniqueItineraryTitle(user.uid, cleanTripName, itineraryId);
 
   const itineraryRef = itineraryId ? ref(realtimeDb, `${ITINERARIES_PATH}/${itineraryId}`) : push(ref(realtimeDb, ITINERARIES_PATH));
   const id = itineraryRef.key;
+  const existing = itineraryId ? (await get(itineraryRef)).val() : null;
+  if (existing && existing.userId !== user.uid) throw new Error('This trip belongs to another traveler.');
+  const createdAt = existing?.createdAt || serverTimestamp();
   const record = {
     userId: user.uid,
     tripName: cleanTripName,
     travelDate: travelDate || '',
     status,
-    createdAt: existingCreatedAt || serverTimestamp(),
+    createdAt,
     updatedAt: serverTimestamp(),
-    days: daysToRealtimeDatabase(days),
+    days: serializedDays,
+    recommendation: recommendation ? {
+      method: String(recommendation.method || ''),
+      generatedAt: String(recommendation.generatedAt || ''),
+      travelDate: String(recommendation.travelDate || travelDate || ''),
+      preferences: normalizePreferences(recommendation.preferences),
+      weatherUsed: recommendation.weatherUsed === true,
+    } : existing?.recommendation || null,
   };
 
   await set(itineraryRef, record);
@@ -37,7 +54,7 @@ export async function saveItineraryToDatabase({ itineraryId, tripName, travelDat
     id,
     trip: itineraryRecordToTrip(id, {
       ...record,
-      createdAt: existingCreatedAt || Date.now(),
+      createdAt: existing?.createdAt || Date.now(),
       updatedAt: Date.now(),
     }),
   };
@@ -105,6 +122,7 @@ export function itineraryRecordToTrip(id, data = {}) {
     image: firstPlace?.image || getPlaceImage({ name: firstPlace?.placeName || data.tripName, category: firstPlace?.category }),
     createdAt: data.createdAt || null,
     updatedAt: data.updatedAt || null,
+    recommendation: data.recommendation || null,
   };
 }
 
@@ -112,6 +130,7 @@ function daysToRealtimeDatabase(days) {
   return days.reduce((payload, day, dayIndex) => {
     const dayKey = `day${dayIndex + 1}`;
     payload[dayKey] = {
+      order: dayIndex,
       places: placesToRealtimeDatabase(day.places || []),
     };
     return payload;
@@ -137,6 +156,9 @@ function createUserItinerariesQuery(userId) {
 
 function placesToRealtimeDatabase(places) {
   return places.reduce((payload, place, placeIndex) => {
+    assertInsideNagaCity(place);
+    const time = visitTimeFields(place.visitTime || place.displayTime || place.time);
+    if (!time) throw new Error(`Pick a valid visit time for ${place.placeName || place.title || 'each place'}.`);
     const entryId = sanitizeFirebaseKey(place.entryId || `place-${placeIndex + 1}-${place.placeId || place.destinationId || Date.now()}`);
     payload[entryId] = {
       placeId: String(place.placeId || place.destinationId || place.id || entryId),
@@ -144,8 +166,11 @@ function placesToRealtimeDatabase(places) {
       address: String(place.address || 'Naga City'),
       latitude: toNumber(place.latitude),
       longitude: toNumber(place.longitude),
-      visitTime: String(place.visitTime || place.time || ''),
-      displayTime: String(place.displayTime || place.time || place.visitTime || ''),
+      ...time,
+      order: placeIndex,
+      category: String(place.category || ''),
+      sourceCollection: String(place.sourceCollection || ''),
+      eventId: place.eventId || null,
     };
     return payload;
   }, {});
@@ -162,7 +187,7 @@ function realtimeDatabaseDaysToScreen(days = {}) {
     id: `day-${index + 1}`,
     firebaseKey: dayKey,
     open: index === 0,
-    places: Object.entries(dayData?.places || {}).map(([entryId, place]) => ({
+    places: Object.entries(dayData?.places || {}).sort(([, a], [, b]) => Number(a.order ?? 0) - Number(b.order ?? 0)).map(([entryId, place]) => ({
       entryId,
       placeId: place.placeId || entryId,
       destinationId: place.placeId || entryId,
@@ -175,6 +200,9 @@ function realtimeDatabaseDaysToScreen(days = {}) {
       displayTime: place.displayTime || place.visitTime || '',
       time: place.displayTime || place.visitTime || 'Add time',
       source: 'firebase',
+      category: place.category || '',
+      sourceCollection: place.sourceCollection || '',
+      eventId: place.eventId || null,
     })),
   }));
 }

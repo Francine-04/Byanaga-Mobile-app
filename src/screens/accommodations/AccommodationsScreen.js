@@ -45,7 +45,7 @@ export default function AccommodationsScreen({ navigation }) {
           compact
           showActions={false}
           style={styles.fullCard}
-          onPress={accommodation.dashboardId ? () => navigation.navigate('EstablishmentDetails', { establishmentId: accommodation.dashboardId }) : undefined}
+          onPress={() => accommodation.sourceCollection === 'business_profiles' ? navigation.navigate('EstablishmentDetails', { establishmentId: accommodation.dashboardId }) : navigation.navigate('DestinationDetails', { destination: accommodation })}
         />
       ))}
     </Screen>

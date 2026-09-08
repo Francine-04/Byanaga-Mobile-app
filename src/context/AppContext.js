@@ -1,10 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { Alert, AppState, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo, { useNetInfo } from '@react-native-community/netinfo';
 import { accommodations as fallbackAccommodations } from '../data/accommodations';
 import { destinations as fallbackDestinations } from '../data/destinations';
-import { heatZones as fallbackHeatZones } from '../data/heatZones';
 import useNotificationFeed from '../hooks/useNotificationFeed';
 import { restaurants as fallbackRestaurants } from '../data/restaurants';
 import {
@@ -23,7 +22,7 @@ import {
   subscribeToEstablishmentPosts,
 } from '../services/establishmentContentService';
 import { firebaseProjectId } from '../services/firebaseApp';
-import { AUTH_REQUIRED_ERROR_CODE, loadTravelerRecord, subscribeToAuthState, travelerRecordToAppState } from '../services/authService';
+import { AUTH_REQUIRED_ERROR_CODE, subscribeToTravelerRecord, subscribeToAuthState, travelerRecordToAppState, toggleTravelerBookmark } from '../services/authService';
 import {
   deleteItineraryFromDatabase,
   saveItineraryToDatabase,
@@ -35,6 +34,8 @@ import { fallbackWeather, fetchNagaWeather } from '../services/weatherService';
 import { makeTheme } from '../theme/theme';
 import { attachEstablishmentContent } from '../utils/establishmentContent';
 import { deriveHeatZones } from '../utils/heatmapData';
+import { emptyPreferences } from '../utils/travelerPreferences';
+import { travelerOnboardingStep } from '../utils/travelerOnboarding';
 
 const AppContext = createContext(null);
 const STORAGE_KEY = 'byanaga.traveler.v1';
@@ -47,13 +48,10 @@ export function AppProvider({ children }) {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [locationPermission, setLocationPermission] = useState('undecided');
-  const [preferences, setPreferences] = useState({
-    places: [],
-    activities: [],
-    travelStyle: '',
-    budget: '',
-    duration: '',
-  });
+  const [preferences, setPreferences] = useState(emptyPreferences);
+  const [travelerReady, setTravelerReady] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(null);
+  const [catalogState, setCatalogState] = useState({ destinations: 'loading', businessProfiles: 'loading' });
   const [bookmarks, setBookmarks] = useState([]);
   const [savedTrips, setSavedTrips] = useState([]);
   const [tourismEvents, setTourismEvents] = useState([]);
@@ -71,7 +69,7 @@ export function AppProvider({ children }) {
   const [weather, setWeather] = useState(fallbackWeather);
   const [weatherError, setWeatherError] = useState(null);
   const [profile, setProfile] = useState({
-    name: 'Francine Dela Torre',
+    name: 'Tourist',
     phone: '',
     bio: 'I love exploring new places!',
     nationality: 'Filipino',
@@ -93,12 +91,21 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     let active = true;
+    let generation = 0;
 
     const unsubscribe = subscribeToAuthState(async (user) => {
       if (!active) return;
+      const request = ++generation;
       setFirebaseUser(user);
-
+      setPreferences(emptyPreferences());
+      setBookmarks([]);
+      setProfile(travelerRecordToAppState(null, user).profile);
+      setTravelerReady(false);
+      setOnboardingStep(null);
+      setLocationPermission('undecided');
+      setAuthReady(false);
       if (!user || user.isAnonymous) {
+        setIsLoggedIn(false);
         setAuthReady(true);
         return;
       }
@@ -106,34 +113,17 @@ export function AppProvider({ children }) {
       setIsGuestMode(false);
 
       try {
-        const [record, remembered] = await Promise.all([
-          loadTravelerRecord(user.uid),
-          getRememberedTraveler(),
-        ]);
-
-        if (!active) return;
-
-        if (record) {
-          const appState = travelerRecordToAppState(record, user);
-          setProfile((current) => ({ ...current, ...appState.profile }));
-          setPreferences((current) => ({ ...current, ...appState.preferences }));
-        }
+        const remembered = await getRememberedTraveler();
+        if (!active || request !== generation) return;
 
         if (remembered?.uid === user.uid) {
           setIsLoggedIn(true);
         }
 
-        setBackendErrors((current) => {
-          const next = { ...current };
-          delete next.auth;
-          return next;
-        });
       } catch (error) {
-        if (active) {
-          setBackendErrors((current) => ({ ...current, auth: error?.message || 'Unable to load traveler profile.' }));
-        }
+        if (active && request === generation) setStorageError('Unable to restore Remember Me on this device.');
       } finally {
-        if (active) setAuthReady(true);
+        if (active && request === generation) setAuthReady(true);
       }
     });
 
@@ -150,9 +140,7 @@ export function AppProvider({ children }) {
       const saved = JSON.parse(raw);
       if (!saved || typeof saved !== 'object') return;
       if (saved.settings && typeof saved.settings === 'object') setSettings((current) => ({ ...current, ...saved.settings }));
-      if (saved.preferences && Array.isArray(saved.preferences.places) && Array.isArray(saved.preferences.activities)) setPreferences((current) => ({ ...current, ...saved.preferences }));
       if (['light', 'dark', 'system'].includes(saved.themePreference)) setThemePreference(saved.themePreference);
-      if (Array.isArray(saved.bookmarks)) setBookmarks(saved.bookmarks.filter((id) => typeof id === 'string'));
     }).catch(() => {
       if (mounted) setStorageError('Unable to restore saved preferences on this device.');
     }).finally(() => {
@@ -164,12 +152,12 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!storageReady) return;
     const timer = setTimeout(() => {
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, settings, preferences, themePreference, bookmarks }))
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ settings, themePreference }))
         .then(() => setStorageError(null))
         .catch(() => setStorageError('Changes could not be saved on this device.'));
     }, 150);
     return () => clearTimeout(timer);
-  }, [storageReady, profile, settings, preferences, themePreference, bookmarks]);
+  }, [storageReady, settings, themePreference]);
 
   const updateBackendError = useCallback((key, message) => {
     setBackendErrors((current) => {
@@ -179,6 +167,28 @@ export function AppProvider({ children }) {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (!firebaseUser?.uid || firebaseUser.isAnonymous || isGuestMode) return undefined;
+    let active = true;
+    setTravelerReady(false);
+    const unsubscribe = subscribeToTravelerRecord(firebaseUser.uid, (record) => {
+      if (!active) return;
+      const state = travelerRecordToAppState(record, firebaseUser);
+      setProfile(state.profile);
+      setPreferences(state.preferences);
+      setOnboardingStep(travelerOnboardingStep(record));
+      setLocationPermission(record?.locationPermission || 'undecided');
+      setBookmarks(Array.isArray(record?.bookmarks) ? record.bookmarks : []);
+      setTravelerReady(true);
+      updateBackendError('auth', null);
+    }, (error) => {
+      if (!active) return;
+      setTravelerReady(false);
+      updateBackendError('auth', error?.message || 'Unable to load your saved profile and preferences.');
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [firebaseUser?.uid, isGuestMode, updateBackendError]);
 
   useEffect(() => {
     const unsubscribe = subscribeToDashboardEvents(
@@ -198,16 +208,17 @@ export function AppProvider({ children }) {
     );
 
     return unsubscribe;
-  }, [updateBackendError]);
+  }, [updateBackendError, firebaseUser?.uid]);
 
   useEffect(() => {
     const subscriptions = [
       subscribeToDashboardDestinations(
         (items) => {
           setLiveDestinations(items);
+          setCatalogState((current) => ({ ...current, destinations: 'ready' }));
           updateBackendError('destinations', null);
         },
-        (error) => updateBackendError('destinations', error?.message || 'Unable to load dashboard destinations.')
+        (error) => { setLiveDestinations([]); setCatalogState((current) => ({ ...current, destinations: 'error' })); updateBackendError('destinations', error?.message || 'Unable to load dashboard destinations.'); }
       ),
       subscribeToDashboardAccommodations(
         (items) => {
@@ -219,9 +230,10 @@ export function AppProvider({ children }) {
       subscribeToDashboardBusinessProfiles(
         (items) => {
           setBusinessProfiles(items);
+          setCatalogState((current) => ({ ...current, businessProfiles: 'ready' }));
           updateBackendError('businessProfiles', null);
         },
-        (error) => updateBackendError('businessProfiles', error?.message || 'Unable to load dashboard business profiles.')
+        (error) => { setBusinessProfiles([]); setCatalogState((current) => ({ ...current, businessProfiles: 'error' })); updateBackendError('businessProfiles', error?.message || 'Unable to load dashboard business profiles.'); }
       ),
       subscribeToDashboardVisitors(
         (items) => {
@@ -258,7 +270,7 @@ export function AppProvider({ children }) {
         if (typeof unsubscribe === 'function') unsubscribe();
       });
     };
-  }, [updateBackendError]);
+  }, [updateBackendError, firebaseUser?.uid]);
 
   useEffect(() => {
     setSavedTrips([]);
@@ -292,7 +304,6 @@ export function AppProvider({ children }) {
       return nextWeather;
     } catch (error) {
       const message = error?.message || 'Unable to load weather.';
-      setWeather(fallbackWeather);
       setWeatherError(message);
       return fallbackWeather;
     }
@@ -301,7 +312,8 @@ export function AppProvider({ children }) {
   useEffect(() => {
     refreshWeather();
     const timer = setInterval(refreshWeather, 10 * 60 * 1000);
-    return () => clearInterval(timer);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') refreshWeather(); });
+    return () => { clearInterval(timer); subscription.remove(); };
   }, [refreshWeather]);
 
   const colorScheme = themePreference === 'system' ? systemScheme || 'light' : themePreference;
@@ -349,6 +361,14 @@ export function AppProvider({ children }) {
       .map(businessProfileToRestaurant)
   ), [establishmentProfiles]);
 
+  const recommendationCatalog = useMemo(() => ({
+    destinations: dedupeByName([...liveDestinations, ...businessDestinations]),
+    restaurants: businessRestaurants,
+    events: tourismEvents,
+    loading: Object.values(catalogState).includes('loading') || eventsSource === 'loading',
+    error: backendErrors.destinations || backendErrors.businessProfiles || eventsError || null,
+  }), [liveDestinations, businessDestinations, businessRestaurants, tourismEvents, catalogState, eventsSource, backendErrors.destinations, backendErrors.businessProfiles, eventsError]);
+
   const restaurants = useMemo(() => {
     const merged = dedupeByName(businessRestaurants);
     return merged.length ? merged : fallbackRestaurants;
@@ -368,7 +388,7 @@ export function AppProvider({ children }) {
   const derivedHeatZones = useMemo(() => (
     deriveHeatZones({ visitors: visitorRecords, destinations, events: tourismEvents })
   ), [destinations, tourismEvents, visitorRecords]);
-  const heatZones = derivedHeatZones.length ? derivedHeatZones : fallbackHeatZones;
+  const heatZones = derivedHeatZones;
   const notificationZones = useMemo(() => deriveHeatZones({
     visitors: visitorRecords,
     destinations: [...liveDestinations, ...businessDestinations],
@@ -398,7 +418,7 @@ export function AppProvider({ children }) {
     accommodations: liveAccommodations.length || businessStays.length ? 'dashboard' : 'mock',
     establishments: establishments.length ? 'dashboard' : 'empty',
     offers: vouchers.length ? 'dashboard' : 'empty',
-    heatmap: derivedHeatZones.length ? 'dashboard' : 'mock',
+    heatmap: derivedHeatZones.length ? 'dashboard' : 'empty',
     weather: weather.source,
   }), [
     businessDestinations.length,
@@ -420,10 +440,15 @@ export function AppProvider({ children }) {
   }), [notifications, settings]);
 
   const toggleBookmark = useCallback((id) => {
-    setBookmarks((current) =>
-      current.includes(id) ? current.filter((bookmarkId) => bookmarkId !== id) : [...current, id]
-    );
-  }, []);
+    if (isGuestMode || !firebaseUser || firebaseUser.isAnonymous) {
+      Alert.alert('Login required', 'Please log in to save places.');
+      return;
+    }
+    toggleTravelerBookmark(firebaseUser.uid, id).catch((error) => {
+      setStorageError(error?.message || 'Unable to save this place.');
+      Alert.alert('Unable to save place', error?.message || 'Please try again.');
+    });
+  }, [isGuestMode, firebaseUser?.uid]);
 
 
   const retryConnection = useCallback(() => NetInfo.refresh(), []);
@@ -492,6 +517,9 @@ export function AppProvider({ children }) {
       setIsGuestMode,
       firebaseUser,
       authReady,
+      travelerReady,
+      onboardingStep,
+      recommendationCatalog,
       locationPermission,
       setLocationPermission,
       preferences,
@@ -540,6 +568,9 @@ export function AppProvider({ children }) {
       isGuestMode,
       firebaseUser,
       authReady,
+      travelerReady,
+      onboardingStep,
+      recommendationCatalog,
       locationPermission,
       preferences,
       bookmarks,

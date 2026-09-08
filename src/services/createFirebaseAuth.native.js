@@ -6,7 +6,8 @@ export function createFirebaseAuth(app) {
     return initializeAuth(app, {
       persistence: getReactNativePersistence(ReactNativeAsyncStorage),
     });
-  } catch {
-    return getAuth(app);
+  } catch (error) {
+    if (error.code === 'auth/already-initialized') return getAuth(app);
+    throw error;
   }
 }

@@ -3,9 +3,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import PlaceholderImage from './PlaceholderImage';
+import useBookmarkAction from '../hooks/useBookmarkAction';
 
 export default function PlaceListItem({ place, onPress, subtitle, showRating = true, travelTime }) {
-  const { theme, bookmarks, toggleBookmark } = useApp();
+  const { theme, bookmarks } = useApp();
+  const toggleBookmark = useBookmarkAction();
   const saved = bookmarks.includes(place.id);
   return (
     <View style={[styles.row, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
