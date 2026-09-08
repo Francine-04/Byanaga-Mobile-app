@@ -11,6 +11,7 @@ export function searchNagaCatalogPlaces({ query = '', category = 'All', collecti
     ...(collections.destinations || []).map((place) => normalizeCollectionPlace(place, 'destination')),
     ...(collections.restaurants || []).map((place) => normalizeCollectionPlace(place, 'restaurant')),
     ...(collections.accommodations || []).map((place) => normalizeCollectionPlace(place, 'accommodation')),
+    ...(collections.establishments || []).map((place) => normalizeCollectionPlace(place, 'establishment')),
     ...(collections.events || []).map((place) => normalizeCollectionPlace(place, 'event')),
     ...nagaPlaces.map((place) => normalizeKnownPlace(place)),
   ].filter(Boolean);
@@ -72,6 +73,9 @@ function normalizeCollectionPlace(item, type) {
       item?.amenities,
       item?.typeLabel,
       item?.category,
+      item?.categoryLabel,
+      item?.description,
+      ...(Array.isArray(item?.services) ? item.services : []),
     ].filter(Boolean),
   });
 }
@@ -123,6 +127,26 @@ function inferCollectionCategory(item, type, knownPlace) {
   if (type === 'restaurant') return 'Food';
   if (type === 'accommodation') return 'Accommodation';
   if (type === 'event') return 'Events';
+  
+  // Handle establishment types - map business categories to search categories
+  if (type === 'establishment') {
+    const category = String(item?.category || '').toLowerCase();
+    const categoryLabel = String(item?.categoryLabel || '').toLowerCase();
+    
+    if (category === 'restaurant' || categoryLabel.includes('dining') || categoryLabel.includes('food')) {
+      return 'Food';
+    }
+    if (category === 'hotel' || category === 'resort' || categoryLabel.includes('stay') || categoryLabel.includes('accommodation')) {
+      return 'Accommodation';
+    }
+    if (category === 'shop' || categoryLabel.includes('shop')) {
+      return 'Shopping';
+    }
+    if (category === 'attraction' || category === 'entertainment' || categoryLabel.includes('attraction')) {
+      return 'Culture';
+    }
+  }
+  
   return item?.category || knownPlace?.category || 'Culture';
 }
 
