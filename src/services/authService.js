@@ -15,12 +15,20 @@ import {
   updateProfile,
   verifyPasswordResetCode,
 } from 'firebase/auth';
-import { get, onValue, ref, runTransaction, serverTimestamp, set, update } from 'firebase/database';
-import { auth, realtimeDb } from './firebaseApp';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
+import { auth, db } from './firebaseApp';
 import { isGmailAddress, isStrongPassword, normalizeEmail, passwordRuleText } from '../utils/authValidation';
 import { normalizePreferences } from '../utils/travelerPreferences';
 
-const USERS_PATH = 'users';
+const USERS_COLLECTION = 'users';
 export const AUTH_REQUIRED_ERROR_CODE = 'auth/required';
 
 export function subscribeToAuthState(onUser) {
@@ -54,19 +62,26 @@ export async function registerTraveler({ email, password, profile, preferences }
   }
 
   try {
-    await set(ref(realtimeDb, `${USERS_PATH}/${user.uid}`), {
+    // Use Firestore instead of Realtime Database
+    await setDoc(doc(db, USERS_COLLECTION, user.uid), {
+      uid: user.uid,
       userId: user.uid,
       email: user.email || email,
+      username: profile.name || '',
       firstName: profile.firstName || '',
       lastName: profile.lastName || '',
       name: profile.name || '',
+      phoneNumber: profile.phone || '',
       age: profile.age || null,
       gender: profile.gender || '',
       nationality: profile.nationality || '',
+      homeCity: profile.homeCity || '',
+      countryOfOrigin: profile.countryOfOrigin || profile.nationality || '',
       image: profile.image || null,
       preferences: normalizePreferences(preferences),
       role: 'tourist',
       accountType: 'tourist',
+      accountStatus: 'active',
       authProvider: 'password',
       authProviders: ['password'],
       emailVerified: user.emailVerified,
@@ -87,25 +102,40 @@ export async function registerTraveler({ email, password, profile, preferences }
 export async function loginTraveler({ email, password }) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
   const user = credential.user;
-  const userRef = ref(realtimeDb, `${USERS_PATH}/${user.uid}`);
   const existing = await loadTravelerRecord(user.uid);
+
+  // BLOCK: Check if user is staff/business (not tourist)
+  if (existing && existing.role && existing.role !== 'tourist') {
+    await signOut(auth); // Log them out immediately
+    const error = new Error('Staff and business accounts cannot use the mobile app. Please use the web dashboard.');
+    error.code = 'auth/role-not-allowed';
+    throw error;
+  }
 
   if (!existing) {
     const name = user.displayName || nameFromEmail(user.email || email) || 'Traveler';
     const parts = splitName(name);
-    await set(userRef, {
+    
+    // Create new user document in Firestore
+    await setDoc(doc(db, USERS_COLLECTION, user.uid), {
+      uid: user.uid,
       userId: user.uid,
       email: user.email || normalizeEmail(email),
+      username: name,
       firstName: parts.firstName,
       lastName: parts.lastName,
       name,
+      phoneNumber: '',
       age: null,
       gender: '',
       nationality: '',
+      homeCity: '',
+      countryOfOrigin: '',
       image: user.photoURL || null,
       preferences: normalizePreferences(),
       role: 'tourist',
       accountType: 'tourist',
+      accountStatus: 'active',
       authProvider: 'password',
       authProviders: user.providerData?.map((provider) => provider.providerId).filter(Boolean) || ['password'],
       emailVerified: user.emailVerified,
@@ -114,7 +144,8 @@ export async function loginTraveler({ email, password }) {
       lastLoginAt: serverTimestamp(),
     });
   } else {
-    await update(userRef, {
+    // Update existing user
+    await updateDoc(doc(db, USERS_COLLECTION, user.uid), {
       role: existing.role || 'tourist',
       accountType: existing.accountType || 'tourist',
       emailVerified: user.emailVerified,
@@ -124,6 +155,15 @@ export async function loginTraveler({ email, password }) {
   }
 
   const record = await loadTravelerRecord(user.uid);
+  
+  // Double-check role after loading (in case it was just created/updated)
+  if (record && record.role && record.role !== 'tourist') {
+    await signOut(auth);
+    const error = new Error('Staff and business accounts cannot use the mobile app. Please use the web dashboard.');
+    error.code = 'auth/role-not-allowed';
+    throw error;
+  }
+  
   return { user, record, createdTravelerRecord: !existing };
 }
 
@@ -184,7 +224,7 @@ export async function signOutTraveler() {
 
 export async function completeTravelerOnboarding(choice) {
   const user = await ensureAuthenticatedUser();
-  await update(ref(realtimeDb, `${USERS_PATH}/${user.uid}`), {
+  await updateDoc(doc(db, USERS_COLLECTION, user.uid), {
     locationPermission: choice,
     onboardingCompletedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -193,27 +233,63 @@ export async function completeTravelerOnboarding(choice) {
 
 export async function loadTravelerRecord(userId) {
   if (!userId) return null;
-  const snapshot = await get(ref(realtimeDb, `${USERS_PATH}/${userId}`));
-  return snapshot.exists() ? snapshot.val() : null;
+  const docSnap = await getDoc(doc(db, USERS_COLLECTION, userId));
+  if (!docSnap.exists()) return null;
+  
+  const data = docSnap.data();
+  // Convert Firestore Timestamps to JavaScript objects for compatibility
+  return {
+    ...data,
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : data.createdAt,
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : data.updatedAt,
+    lastLoginAt: data.lastLoginAt instanceof Timestamp ? data.lastLoginAt.toDate() : data.lastLoginAt,
+  };
 }
 
 export function subscribeToTravelerRecord(userId, onRecord, onError) {
-  return onValue(ref(realtimeDb, `${USERS_PATH}/${userId}`), (snapshot) => onRecord(snapshot.val()), onError);
+  return onSnapshot(
+    doc(db, USERS_COLLECTION, userId),
+    (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        onRecord({
+          ...data,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : data.createdAt,
+          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : data.updatedAt,
+          lastLoginAt: data.lastLoginAt instanceof Timestamp ? data.lastLoginAt.toDate() : data.lastLoginAt,
+        });
+      } else {
+        onRecord(null);
+      }
+    },
+    onError
+  );
 }
 
 export async function toggleTravelerBookmark(userId, placeId) {
   const user = await ensureAuthenticatedUser();
   if (user.uid !== userId) throw new Error('Your session changed. Please log in again.');
-  await runTransaction(ref(realtimeDb, `${USERS_PATH}/${userId}/bookmarks`), (value) => {
-    const bookmarks = Array.isArray(value) ? value : [];
-    return bookmarks.includes(placeId) ? bookmarks.filter((id) => id !== placeId) : [...bookmarks, placeId];
-  }, { applyLocally: false });
+  
+  // Load current bookmarks
+  const record = await loadTravelerRecord(userId);
+  const bookmarks = Array.isArray(record?.bookmarks) ? record.bookmarks : [];
+  
+  // Toggle bookmark
+  const newBookmarks = bookmarks.includes(placeId)
+    ? bookmarks.filter((id) => id !== placeId)
+    : [...bookmarks, placeId];
+  
+  // Update in Firestore
+  await updateDoc(doc(db, USERS_COLLECTION, userId), {
+    bookmarks: newBookmarks,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function saveTravelerPreferences(userId, preferences) {
   const user = await ensureAuthenticatedUser();
   if (user.uid !== userId) throw new Error('Your session changed. Please log in again.');
-  await update(ref(realtimeDb, `${USERS_PATH}/${userId}`), {
+  await updateDoc(doc(db, USERS_COLLECTION, userId), {
     preferences: normalizePreferences(preferences),
     updatedAt: serverTimestamp(),
   });
@@ -227,13 +303,15 @@ export async function saveTravelerProfile(userId, profile) {
   const fields = {
     ...splitName(name),
     name,
+    username: name,
     phone: String(profile.phone || '').trim(),
+    phoneNumber: String(profile.phone || '').trim(),
     bio: String(profile.bio || '').trim(),
     coverImage: profile.coverImage || null,
     nationality: profile.nationality || '',
     image: profile.image || null,
   };
-  await update(ref(realtimeDb, `${USERS_PATH}/${userId}`), {
+  await updateDoc(doc(db, USERS_COLLECTION, userId), {
     ...fields,
     updatedAt: serverTimestamp(),
   });
@@ -327,23 +405,29 @@ async function completeSocialSignIn(credential, providerKey, profileOverrides = 
 
   const existing = await loadTravelerRecord(user.uid);
   const socialProfile = buildSocialProfile(user, profileOverrides);
-  const userRef = ref(realtimeDb, `${USERS_PATH}/${user.uid}`);
   const providerIds = user.providerData?.map((provider) => provider.providerId).filter(Boolean) || [];
 
   if (!existing) {
-    await set(userRef, stripUndefined({
+    // Create new user in Firestore
+    await setDoc(doc(db, USERS_COLLECTION, user.uid), stripUndefined({
+      uid: user.uid,
       userId: user.uid,
       email: socialProfile.email,
+      username: socialProfile.name,
       firstName: socialProfile.firstName,
       lastName: socialProfile.lastName,
       name: socialProfile.name,
+      phoneNumber: '',
       age: null,
       gender: '',
       nationality: '',
+      homeCity: '',
+      countryOfOrigin: '',
       image: socialProfile.image,
       preferences: normalizePreferences(),
       role: 'tourist',
       accountType: 'tourist',
+      accountStatus: 'active',
       authProvider: providerKey,
       authProviders: providerIds,
       emailVerified: user.emailVerified,
@@ -352,23 +436,35 @@ async function completeSocialSignIn(credential, providerKey, profileOverrides = 
       lastLoginAt: serverTimestamp(),
     }));
   } else {
-    await update(userRef, stripUndefined({
+    // Update existing user
+    await updateDoc(doc(db, USERS_COLLECTION, user.uid), stripUndefined({
       email: existing.email || socialProfile.email,
       firstName: existing.firstName ?? splitName(existing.name || socialProfile.name).firstName,
       lastName: existing.lastName ?? splitName(existing.name || socialProfile.name).lastName,
       name: existing.name || socialProfile.name,
+      username: existing.username || existing.name || socialProfile.name,
       image: existing.image || socialProfile.image,
       authProvider: existing.authProvider || providerKey,
       authProviders: providerIds.length ? providerIds : existing.authProviders,
       emailVerified: user.emailVerified,
       role: existing.role || 'tourist',
       accountType: existing.accountType || 'tourist',
+      accountStatus: existing.accountStatus || 'active',
       updatedAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
     }));
   }
 
   const record = await loadTravelerRecord(user.uid);
+  
+  // BLOCK: Check if user is staff/business (not tourist)
+  if (record && record.role && record.role !== 'tourist') {
+    await signOut(auth); // Log them out immediately
+    const error = new Error('Staff and business accounts cannot use the mobile app. Please use the web dashboard.');
+    error.code = 'auth/role-not-allowed';
+    throw error;
+  }
+  
   return { user, record };
 }
 
