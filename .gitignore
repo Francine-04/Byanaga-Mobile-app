@@ -44,3 +44,4 @@ yarn-error.*
 # Operating system files
 .DS_Store
 Thumbs.db
+/reference
