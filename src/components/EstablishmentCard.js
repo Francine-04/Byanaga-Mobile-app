@@ -1,12 +1,15 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
+import useBookmarkAction from '../hooks/useBookmarkAction';
 import AppCard from './AppCard';
 import PlaceholderImage from './PlaceholderImage';
 
-export default function EstablishmentCard({ establishment, onPress, horizontal = false, style }) {
-  const { theme } = useApp();
+export default function EstablishmentCard({ establishment, onPress, horizontal = false, showBookmark = true, style }) {
+  const { theme, bookmarks } = useApp();
+  const toggleBookmark = useBookmarkAction();
+  const saved = bookmarks.includes(establishment.id);
   const updateCount = establishment.posts?.length || 0;
   const offerCount = establishment.vouchers?.length || 0;
 
@@ -31,6 +34,20 @@ export default function EstablishmentCard({ establishment, onPress, horizontal =
             {establishment.categoryLabel}
           </Text>
           <View style={[styles.statusDot, { backgroundColor: establishment.isOpen ? theme.colors.success : theme.colors.textSoft }]} />
+          {showBookmark && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${saved ? 'Unsave' : 'Save'} ${establishment.name}`}
+              accessibilityState={{ selected: saved }}
+              onPress={(event) => {
+                event.stopPropagation();
+                toggleBookmark(establishment.id);
+              }}
+              style={styles.bookmarkButton}
+            >
+              <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color={saved ? theme.colors.primary : theme.colors.textMuted} />
+            </Pressable>
+          )}
         </View>
         <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={2}>{establishment.name}</Text>
         <View style={styles.metaRow}>
@@ -125,6 +142,13 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 4,
     marginLeft: 6,
+  },
+  bookmarkButton: {
+    marginLeft: 6,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     marginTop: 8,
