@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
+import useBookmarkAction from '../../hooks/useBookmarkAction';
 import { formatPublishedDate } from '../../utils/establishmentContent';
 import AppCard from '../../components/AppCard';
 import AppHeader, { goToDashboard } from '../../components/AppHeader';
@@ -12,12 +13,14 @@ import SectionHeader from '../../components/SectionHeader';
 import VoucherCard from '../../components/VoucherCard';
 
 export default function EstablishmentDetailsScreen({ navigation, route }) {
-  const { theme, establishments, backendErrors } = useApp();
+  const { theme, establishments, bookmarks, backendErrors } = useApp();
+  const toggleBookmark = useBookmarkAction();
   const requestedId = route.params?.establishmentId || route.params?.establishment?.dashboardId;
   const establishment = useMemo(
     () => establishments.find((item) => item.dashboardId === requestedId || item.id === requestedId) || route.params?.establishment,
     [establishments, requestedId, route.params?.establishment]
   );
+  const saved = establishment ? bookmarks.includes(establishment.id) : false;
 
   if (!establishment) {
     return (
@@ -53,6 +56,7 @@ export default function EstablishmentDetailsScreen({ navigation, route }) {
       </View>
 
       <View style={styles.actions}>
+        <Action icon={saved ? 'bookmark' : 'bookmark-outline'} label="Save" onPress={() => toggleBookmark(establishment.id)} />
         {establishment.website ? <Action icon="globe-outline" label="Website" onPress={() => openLink(establishment.website, 'website')} /> : null}
         {establishment.contact && establishment.contact !== 'Not connected' ? <Action icon="call-outline" label="Call" onPress={() => openLink(establishment.contact, 'phone')} /> : null}
         {establishment.email ? <Action icon="mail-outline" label="Email" onPress={() => openLink(`mailto:${establishment.email}`, 'website')} /> : null}
