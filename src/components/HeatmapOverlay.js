@@ -1,11 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { heatZones as defaultHeatZones } from '../data/heatZones';
 
-export { heatZones } from '../data/heatZones';
-
-export default function HeatmapOverlay({ zones = defaultHeatZones, selectedZoneId, onSelectZone }) {
+export default function HeatmapOverlay({ zones = [], selectedZoneId, onSelectZone }) {
   const { theme } = useApp();
 
   return (

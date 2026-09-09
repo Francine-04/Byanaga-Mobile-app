@@ -6,10 +6,11 @@ import {
   normalizeItineraryTitle,
 } from '../utils/itineraryTitle';
 import { realtimeDb } from './firebaseApp';
-import { ensureAuthenticatedUser } from './authService';
+import { ensureAuthenticatedUser, loadTravelerRecord } from './authService';
 import { assertInsideNagaCity } from '../utils/nagaBoundary';
 import { parseTravelDate, visitTimeFields } from '../utils/travelSchedule';
 import { normalizePreferences } from '../utils/travelerPreferences';
+import { recordItineraryVisit, recordMultipleVisits } from './visitorTrackingService';
 
 const ITINERARIES_PATH = 'itineraries';
 
@@ -84,16 +85,65 @@ export function subscribeToUserItineraries(userId, onTrips, onError) {
 }
 
 export async function updateItineraryStatusInDatabase(itineraryId, status) {
-  await ensureAuthenticatedUser();
+  const user = await ensureAuthenticatedUser();
 
   if (!itineraryId) {
     throw new Error('Missing itinerary ID.');
   }
 
+  // Update itinerary status
   await update(ref(realtimeDb, `${ITINERARIES_PATH}/${itineraryId}`), {
     status,
     updatedAt: serverTimestamp(),
   });
+
+  // 🆕 AUTO-TRACK VISITOR DATA: When marking as "Completed", record visits
+  if (status === 'Completed') {
+    try {
+      // Get itinerary details
+      const itinerarySnapshot = await get(ref(realtimeDb, `${ITINERARIES_PATH}/${itineraryId}`));
+      const itineraryData = itinerarySnapshot.val();
+      
+      if (!itineraryData) return;
+
+      // Get tourist profile for demographics
+      const touristProfile = await loadTravelerRecord(user.uid);
+      
+      // Extract all destinations from all days
+      const allDestinations = [];
+      const days = itineraryData.days || {};
+      
+      Object.values(days).forEach((day) => {
+        const places = day.places || {};
+        Object.values(places).forEach((place) => {
+          allDestinations.push({
+            placeId: place.placeId,
+            placeName: place.placeName,
+            category: place.category || '',
+            visitTime: place.visitTime || place.displayTime,
+          });
+        });
+      });
+
+      // Record visits to Firestore (for officer dashboard analytics)
+      if (allDestinations.length > 0) {
+        const visitDate = parseTravelDate(itineraryData.travelDate) || new Date();
+        
+        await recordMultipleVisits({
+          destinations: allDestinations,
+          visitDate,
+          touristProfile: touristProfile || {},
+          itineraryId,
+          tripName: itineraryData.tripName,
+        });
+
+        console.log(`✅ Recorded ${allDestinations.length} visits for itinerary: ${itineraryData.tripName}`);
+      }
+    } catch (error) {
+      // Don't fail the status update if visitor tracking fails
+      console.error('⚠️ Visitor tracking failed (non-blocking):', error);
+    }
+  }
 }
 
 export async function deleteItineraryFromDatabase(itineraryId) {

@@ -18,7 +18,7 @@ import { visitTimeFields } from '../utils/travelSchedule';
 const filters = ['All', 'Nature', 'Church', 'Culture', 'Food', 'Shopping', 'Accommodation', 'Events'];
 
 export default function DestinationSelectorModal({ visible, dayLabel, onClose, onAdd }) {
-  const { theme, destinations, restaurants, accommodations, tourismEvents } = useApp();
+  const { theme, destinations, restaurants, accommodations, tourismEvents, establishments } = useApp();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const [results, setResults] = useState([]);
@@ -29,8 +29,14 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
   const searchRequest = useRef(0);
 
   const collections = useMemo(
-    () => ({ destinations, restaurants, accommodations, events: tourismEvents }),
-    [accommodations, destinations, restaurants, tourismEvents]
+    () => ({ 
+      destinations, 
+      restaurants, 
+      accommodations, 
+      events: tourismEvents,
+      establishments, // Include establishments in search
+    }),
+    [accommodations, destinations, restaurants, tourismEvents, establishments]
   );
 
   const runSearch = useCallback(async (nextCategory = category, nextQuery = query) => {
@@ -46,7 +52,23 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
       limit: 30,
     });
     setResults(catalogPlaces);
+    setLoading(false);
 
+    // Only search Mapbox if token is available and query is not empty
+    const { hasMapboxAccessToken } = await import('../services/mapboxService');
+    if (!nextQuery.trim() || !hasMapboxAccessToken()) {
+      // Just use catalog results without Mapbox
+      const places = mergeNagaPlaceResults(catalogPlaces, [], 30);
+      if (request === searchRequest.current) {
+        setResults(places);
+        if (!places.length) {
+          setError('No Naga City places found for this category.');
+        }
+      }
+      return;
+    }
+
+    // Fetch Mapbox results if available
     try {
       const mapboxPlaces = await searchMapboxPlaces({ query: nextQuery, category: nextCategory, limit: 20 });
       if (request !== searchRequest.current) return;
@@ -57,11 +79,13 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
       }
     } catch (searchError) {
       if (request !== searchRequest.current) return;
-      const places = mergeNagaPlaceResults(catalogPlaces, 30);
+      // Fallback to catalog-only results on Mapbox error
+      const places = mergeNagaPlaceResults(catalogPlaces, [], 30);
       setResults(places);
-      setError(searchError?.message || 'Unable to search Naga City places.');
-    } finally {
-      if (request === searchRequest.current) setLoading(false);
+      // Only show error if it's not just about missing token
+      if (!searchError?.message?.includes('token')) {
+        setError(searchError?.message || 'Unable to search Naga City places.');
+      }
     }
   }, [category, collections, query]);
 

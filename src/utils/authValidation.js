@@ -1,6 +1,56 @@
 export const passwordRuleText = 'Use 8-15 characters with 1 uppercase letter, 1 number, and 1 special character.';
 export const incorrectLoginMessage = 'Incorrect email or password.';
 
+/**
+ * Calculate age from birthday
+ * @param {string|Date} birthday - Birthday in YYYY-MM-DD format or Date object
+ * @returns {number|null} - Age in years, or null if invalid
+ */
+export function calculateAge(birthday) {
+  if (!birthday) return null;
+  
+  const birthDate = birthday instanceof Date ? birthday : new Date(birthday);
+  if (isNaN(birthDate.getTime())) return null;
+  
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  // Adjust age if birthday hasn't occurred this year yet
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age >= 0 ? age : null;
+}
+
+/**
+ * Format birthday to YYYY-MM-DD
+ * @param {string|Date} birthday
+ * @returns {string} - Formatted birthday
+ */
+export function formatBirthday(birthday) {
+  if (!birthday) return '';
+  const date = birthday instanceof Date ? birthday : new Date(birthday);
+  if (isNaN(date.getTime())) return '';
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Validate birthday is realistic (between 13 and 120 years old)
+ * @param {string|Date} birthday
+ * @returns {boolean}
+ */
+export function isValidBirthday(birthday) {
+  const age = calculateAge(birthday);
+  return age !== null && age >= 13 && age <= 120;
+}
+
 export function sanitizeAgeInput(value) {
   return String(value || '').replace(/[^0-9]/g, '').slice(0, 3);
 }
@@ -28,16 +78,16 @@ export function validateRegistrationProfile(form) {
   const errors = {};
   const firstName = String(form.firstName || '').trim();
   const lastName = String(form.lastName || '').trim();
-  const ageText = sanitizeAgeInput(form.age);
-  const age = Number(ageText);
+  const birthday = form.birthday;
+  const age = calculateAge(birthday);
   const email = normalizeEmail(form.email);
   const password = String(form.password || '');
   const confirmPassword = String(form.confirmPassword || '');
 
   if (!firstName) errors.firstName = 'First name is required.';
   if (!lastName) errors.lastName = 'Last name is required.';
-  if (!ageText) errors.age = 'Age is required.';
-  else if (!Number.isInteger(age) || age < 1 || age > 120) errors.age = 'Enter a valid age from 1 to 120.';
+  if (!birthday) errors.birthday = 'Birthday is required.';
+  else if (!isValidBirthday(birthday)) errors.birthday = 'You must be between 13 and 120 years old.';
   if (!form.gender) errors.gender = 'Select MALE or FEMALE.';
   if (!form.nationality) errors.nationality = 'Select your nationality.';
   if (!email) errors.email = 'Gmail address is required.';
@@ -75,12 +125,15 @@ export function buildRegistrationProfile(form) {
   const firstName = String(form.firstName || '').trim();
   const lastName = String(form.lastName || '').trim();
   const email = normalizeEmail(form.email);
+  const birthday = formatBirthday(form.birthday);
+  const age = calculateAge(birthday);
 
   return {
     firstName,
     lastName,
     name: `${firstName} ${lastName}`.trim(),
-    age: Number(sanitizeAgeInput(form.age)),
+    birthday,
+    age,
     gender: form.gender,
     nationality: form.nationality,
     email,
