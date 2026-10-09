@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import HeatmapOverlay from './HeatmapOverlay';
 
 const defaultMarkers = [
   { id: 'm1', name: 'Basilica', top: '19%', left: '58%' },
@@ -16,7 +15,7 @@ export default function MapPlaceholder({
   markers = defaultMarkers,
   selectedZoneId,
   onSelectZone,
-  showHeatmap = true,
+  showHeatmap = false,
   showControls = true,
   showMarkers = true,
   largePin = false,
@@ -33,7 +32,6 @@ export default function MapPlaceholder({
       <Road top="8%" left="45%" width="96%" rotate="86deg" color={theme.dark ? '#41536B' : '#D5DED9'} />
       <View style={[styles.park, { backgroundColor: theme.dark ? '#173C2A' : '#D8F2DF' }]} />
       <View style={[styles.district, { borderColor: theme.colors.border }]} />
-      {showHeatmap ? <HeatmapOverlay zones={zones} selectedZoneId={selectedZoneId} onSelectZone={onSelectZone} /> : null}
       <Text style={[styles.cityLabel, { color: theme.colors.text }]}>Naga City</Text>
       {largePin ? (
         <View style={styles.largePinWrap}>
