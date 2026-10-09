@@ -6,7 +6,7 @@ export default function OnboardingScreen3({ navigation }) {
     <OnboardingLayout
       step={2}
       title="Travel Smarter"
-      description="View tourism heatmaps and receive itinerary suggestions powered by preference matching and route optimization algorithms."
+      description="Receive personalized itinerary suggestions powered by preference matching and route optimization algorithms."
       image={require('../../../assets/Onboarding 3.png')}
       imageLabel="Travel smarter illustration"
       topAction={{ title: 'Skip', onPress: () => navigation.navigate('Auth', { screen: 'Login' }) }}

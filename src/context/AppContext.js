@@ -33,7 +33,6 @@ import { getRememberedTraveler } from '../services/rememberMeService';
 import { fallbackWeather, fetchNagaWeather } from '../services/weatherService';
 import { makeTheme } from '../theme/theme';
 import { attachEstablishmentContent } from '../utils/establishmentContent';
-import { deriveHeatZones } from '../utils/heatmapData';
 import { emptyPreferences } from '../utils/travelerPreferences';
 import { travelerOnboardingStep } from '../utils/travelerOnboarding';
 
@@ -385,20 +384,11 @@ export function AppProvider({ children }) {
     return merged.length ? merged : fallbackAccommodations;
   }, [businessStays, liveAccommodations]);
 
-  const derivedHeatZones = useMemo(() => (
-    deriveHeatZones({ visitors: visitorRecords, destinations, events: tourismEvents })
-  ), [destinations, tourismEvents, visitorRecords]);
-  const heatZones = derivedHeatZones;
-  const notificationZones = useMemo(() => deriveHeatZones({
-    visitors: visitorRecords,
-    destinations: [...liveDestinations, ...businessDestinations],
-    events: eventsSource === 'dashboard' ? tourismEvents : [],
-  }), [visitorRecords, liveDestinations, businessDestinations, eventsSource, tourismEvents]);
   const { notifications, vouchers: liveVouchers, markAllNotificationsRead, markNotificationsRead, notificationError } = useNotificationFeed({
     userId: !isGuestMode && firebaseUser && !firebaseUser.isAnonymous ? firebaseUser.uid : null,
     events: eventsSource === 'dashboard' ? tourismEvents : [],
     trips: !isGuestMode && firebaseUser ? savedTrips.filter((trip) => trip.userId === firebaseUser.uid) : [],
-    zones: notificationZones,
+    zones: [],
     establishmentPosts: visibleEstablishmentPosts,
   });
   const vouchers = useMemo(
@@ -418,13 +408,11 @@ export function AppProvider({ children }) {
     accommodations: liveAccommodations.length || businessStays.length ? 'dashboard' : 'mock',
     establishments: establishments.length ? 'dashboard' : 'empty',
     offers: vouchers.length ? 'dashboard' : 'empty',
-    heatmap: derivedHeatZones.length ? 'dashboard' : 'empty',
     weather: weather.source,
   }), [
     businessDestinations.length,
     businessRestaurants.length,
     businessStays.length,
-    derivedHeatZones.length,
     eventsSource,
     liveAccommodations.length,
     liveDestinations.length,
@@ -540,7 +528,6 @@ export function AppProvider({ children }) {
       establishmentGallery: visibleEstablishmentGallery,
       establishmentMenuItems: visibleEstablishmentMenuItems,
       vouchers,
-      heatZones,
       visitorRecords,
       tourismEvents,
       eventsSource,
@@ -588,7 +575,6 @@ export function AppProvider({ children }) {
       visibleEstablishmentGallery,
       visibleEstablishmentMenuItems,
       vouchers,
-      heatZones,
       visitorRecords,
       tourismEvents,
       eventsSource,

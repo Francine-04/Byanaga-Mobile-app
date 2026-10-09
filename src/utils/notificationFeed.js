@@ -57,8 +57,5 @@ export function buildNotificationFeed({ events = [], vouchers = [], establishmen
       add(`trip-reminder-${trip.id}-${trip.travelDate}`, 'Travel Reminders', `Your trip: ${trip.name}`, `Your itinerary is scheduled for ${trip.travelDate}.`, starts - 86400000, 'Main', { screen: 'Trips' });
     }
   });
-  zones.filter((zone) => zone.source === 'dashboard' && ['busy', 'crowded'].includes(zone.colorKey)).forEach((zone) => {
-    add(`heat-${zone.id}-${zone.colorKey}-${zone.count}`, 'System Updates', `Heatmap: ${zone.label}`, `${zone.level} relative to other areas, based on encoded visits and event attendance.`, 0, 'Main', { screen: 'Heatmap' });
-  });
   return items.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
 }
