@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import ExploreScreen from '../screens/main/ExploreScreen';
-import HeatmapScreen from '../screens/main/HeatmapScreen';
 import HomeScreen from '../screens/main/HomeScreen';
 import SavedTripsScreen from '../screens/itinerary/SavedTripsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -16,7 +15,6 @@ const Tab = createBottomTabNavigator();
 const icons = {
   Home: ['home', 'home-outline'],
   Explore: ['search', 'search-outline'],
-  Heatmap: ['map', 'map-outline'],
   Trips: ['calendar', 'calendar-outline'],
   Profile: ['person', 'person-outline'],
 };
@@ -48,7 +46,6 @@ export default function MainTabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Explore" component={ExploreScreen} />
-      <Tab.Screen name="Heatmap" component={HeatmapScreen} />
       <Tab.Screen
         name="Trips"
         component={SavedTripsScreen}
