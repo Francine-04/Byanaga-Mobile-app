@@ -15,7 +15,6 @@ import DestinationCard from '../../components/DestinationCard';
 import EventCard from '../../components/EventCard';
 import EstablishmentCard from '../../components/EstablishmentCard';
 import IconButton from '../../components/IconButton';
-import MapPlaceholder from '../../components/MapPlaceholder';
 import PlaceholderImage from '../../components/PlaceholderImage';
 import RestaurantCard from '../../components/RestaurantCard';
 import SectionHeader from '../../components/SectionHeader';
@@ -38,7 +37,6 @@ export default function HomeScreen({ navigation }) {
     accommodations,
     establishments,
     vouchers,
-    heatZones,
     weather,
     weatherError,
     refreshWeather,
@@ -141,7 +139,6 @@ export default function HomeScreen({ navigation }) {
 
         <Text style={[styles.quickTitle, { color: theme.colors.text }]}>Quick Access</Text>
         <View style={styles.quickGrid}>
-          <QuickAccess icon="leaf-outline" label="Heatmap" onPress={() => navigation.navigate('Heatmap')} />
           <QuickAccess icon="clipboard-outline" label="Smart Itinerary" onPress={() => navigation.navigate('SmartItinerary')} />
           <QuickAccess icon="calendar-outline" label="Events" onPress={() => navigation.navigate('Events')} />
           <QuickAccess icon="storefront-outline" label="Establishments" onPress={() => navigation.navigate('Establishments')} />
@@ -192,18 +189,6 @@ export default function HomeScreen({ navigation }) {
             </View>
           </AppCard>
         )}
-
-        <SectionHeader title="Tourism Heatmap" onPress={() => navigation.navigate('Heatmap')} />
-        <AppCard style={styles.mapCard}>
-          <MapPlaceholder zones={heatZones} style={styles.mapPreview} />
-          <View style={styles.mapFooter}>
-            <View>
-              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Naga City Heatmap</Text>
-              <Text style={[styles.cardCopy, { color: theme.colors.textMuted }]}>Crowd levels shown with labeled zones.</Text>
-            </View>
-            <AppButton title="Open" onPress={() => navigation.navigate('Heatmap')} style={styles.shortButton} />
-          </View>
-        </AppCard>
 
         {!hasActiveItineraries && (
           <>
