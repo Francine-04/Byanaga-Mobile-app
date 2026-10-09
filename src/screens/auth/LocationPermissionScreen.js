@@ -36,9 +36,9 @@ export default function LocationPermissionScreen({ navigation }) {
           <Ionicons name="shield-checkmark-outline" size={22} color={theme.colors.primary} />
         </View>
         <View style={styles.privacyText}>
-          <Text style={[styles.privacyTitle, { color: theme.colors.text }]}>Anonymous heatmaps</Text>
+          <Text style={[styles.privacyTitle, { color: theme.colors.text }]}>Anonymous data collection</Text>
           <Text style={[styles.privacyCopy, { color: theme.colors.textMuted }]}>
-            Your location is collected anonymously to improve tourism heatmaps.
+            Your location is collected anonymously to improve tourism services and recommendations.
           </Text>
         </View>
       </AppCard>
