@@ -85,7 +85,6 @@ export default function DestinationDetailsScreen({ navigation, route }) {
       </View>
 
       <View style={styles.actionRow}>
-        <Action icon="map-outline" label="Map" onPress={() => goToMain(navigation, 'Heatmap')} />
         <Action icon="call-outline" label="Call" disabled={!hasPhone} onPress={() => Linking.openURL('tel:' + destination.contact).catch(() => setMessage('Unable to open a phone app.'))} />
         <Action icon={bookmarked ? 'heart' : 'heart-outline'} label="Save" onPress={() => toggleBookmark(destination.id)} />
         <Action icon="share-social-outline" label="Share" onPress={share} />
