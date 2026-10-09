@@ -18,10 +18,9 @@ export default function SavedTripsScreen({ navigation, route }) {
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [actionError, setActionError] = useState(null);
   const accessRequired = isTravelerAccessRequired({ isGuestMode, firebaseUser, authReady });
-  useEffect(() => {
-    if (accessRequired) redirectToLogin(navigation);
-  }, [accessRequired, navigation]);
+  
   useEffect(() => { if (tabs.includes(route.params?.status)) setActiveTab(route.params.status); }, [route.params?.status, route.params?.updatedAt]);
+  
   const filtered = accessRequired ? [] : savedTrips.filter((trip) => trip.status === activeTab);
   const chooseAction = async (action) => {
     if (accessRequired) {
@@ -43,7 +42,7 @@ export default function SavedTripsScreen({ navigation, route }) {
       setActionError(error?.message || 'Unable to update this trip.');
     }
   };
-  if (accessRequired) return <View style={[styles.protectedScreen, { backgroundColor: theme.colors.background }]} />;
+  
   return (
     <Screen contentStyle={styles.content}>
       <AppHeader centered title="Saved Trips" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
@@ -52,7 +51,18 @@ export default function SavedTripsScreen({ navigation, route }) {
           <Text style={[styles.errorText, { color: theme.colors.danger }]}>{actionError || itineraryError}</Text>
         </View>
       ) : null}
-      {savedTrips.length ? <View style={styles.tabs}>
+      
+      {accessRequired ? (
+        <EmptyState 
+          icon="log-in-outline" 
+          title="Login to Save Trips" 
+          message="Create an account or sign in to save and manage your itineraries."
+          actionTitle="Login"
+          onPress={() => redirectToLogin(navigation)}
+        />
+      ) : (
+        <>
+          {savedTrips.length ? <View style={styles.tabs}>
         {tabs.map((tab) => <Pressable key={tab} accessibilityRole="tab" accessibilityLabel={tab} accessibilityState={{ selected: activeTab === tab }} onPress={() => setActiveTab(tab)}
           aria-selected={activeTab === tab}
           style={[styles.segment, { backgroundColor: activeTab === tab ? theme.colors.primary : theme.colors.surface, borderColor: activeTab === tab ? theme.colors.primary : theme.colors.border }]}>
@@ -73,7 +83,10 @@ export default function SavedTripsScreen({ navigation, route }) {
         </Pressable>
       </View>) : <EmptyState {...emptyStates.savedTrips} title={savedTrips.length ? 'No ' + activeTab.toLowerCase() + ' trips' : emptyStates.savedTrips.title}
         icon="bag-handle-outline" onPress={() => navigation.navigate('Explore')} />}
-      <AppButton title="Create New Trip" icon="add" onPress={() => navigation.navigate('CreateItinerary')} variant={filtered.length ? 'primary' : 'ghost'} style={styles.create} />
+          <AppButton title="Create New Trip" icon="add" onPress={() => navigation.navigate('CreateItinerary')} variant={filtered.length ? 'primary' : 'ghost'} style={styles.create} />
+        </>
+      )}
+      
       <SelectionSheet visible={!!selectedTrip} title={selectedTrip?.name || 'Trip options'}
         options={selectedTrip?.status === 'Completed' ? ['Open trip', 'Delete trip'] : ['Open trip', 'Mark completed', 'Delete trip']}
         onSelect={chooseAction} onClose={() => setSelectedTrip(null)} />
@@ -81,7 +94,6 @@ export default function SavedTripsScreen({ navigation, route }) {
   );
 }
 const styles = StyleSheet.create({
-  protectedScreen: { flex: 1 },
   content: { paddingTop: 8 }, tabs: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   errorBox: { minHeight: 44, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 14, justifyContent: 'center' },
   errorText: { fontSize: 12, lineHeight: 18, fontWeight: '800' },
