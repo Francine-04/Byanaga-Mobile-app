@@ -8,7 +8,6 @@ import ExploreScreen from '../screens/main/ExploreScreen';
 import HomeScreen from '../screens/main/HomeScreen';
 import SavedTripsScreen from '../screens/itinerary/SavedTripsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
-import { isTravelerAccessRequired, redirectToLogin } from '../utils/guestAccess';
 
 const Tab = createBottomTabNavigator();
 
@@ -20,9 +19,8 @@ const icons = {
 };
 
 export default function MainTabNavigator() {
-  const { theme, isGuestMode, firebaseUser, authReady } = useApp();
+  const { theme } = useApp();
   const insets = useSafeAreaInsets();
-  const itineraryAccessRequired = isTravelerAccessRequired({ isGuestMode, firebaseUser, authReady });
 
   return (
     <Tab.Navigator
@@ -46,17 +44,7 @@ export default function MainTabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Explore" component={ExploreScreen} />
-      <Tab.Screen
-        name="Trips"
-        component={SavedTripsScreen}
-        listeners={({ navigation }) => ({
-          tabPress: (event) => {
-            if (!itineraryAccessRequired) return;
-            event.preventDefault();
-            redirectToLogin(navigation);
-          },
-        })}
-      />
+      <Tab.Screen name="Trips" component={SavedTripsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
