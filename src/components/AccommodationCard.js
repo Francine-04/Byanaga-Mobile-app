@@ -17,6 +17,7 @@ export default function AccommodationCard({ accommodation, compact = false, show
     <AppCard accessibilityLabel={`Open ${accommodation.name}`} onPress={onPress} style={[styles.card, compact && styles.compactCard, style]}>
       <PlaceholderImage
         image={accommodation.image}
+        resizeMode="cover"
         label="Accommodation placeholder"
         aspectRatio={compact ? 1.16 : 1.25}
         style={compact ? styles.compactImage : styles.image}

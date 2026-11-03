@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import AppHeader, { goToDashboard, goToMain } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
+import ItineraryTipCard from '../../components/ItineraryTipCard';
 import AppTextInput from '../../components/AppTextInput';
 import DestinationSelectorModal from '../../components/DestinationSelectorModal';
 import Screen from '../../components/Screen';
@@ -24,7 +25,7 @@ import {
 
 export default function CreateItineraryScreen({ navigation, route }) {
   const { theme, destinations, recommendationCatalog, travelerReady, backendErrors, preferences, weather, isGuestMode, firebaseUser, authReady, savedTrips, saveItinerary } = useApp();
-  const [suggestionMessage, setSuggestionMessage] = useState('');
+  const [suggestionMessage, setSuggestionMessage] = useState(route.params?.trip?.recommendation?.summary || '');
   const [recommendation, setRecommendation] = useState(route.params?.trip?.recommendation || null);
   const [replacePending, setReplacePending] = useState(false);
   const savePending = useRef(false);
@@ -226,7 +227,7 @@ export default function CreateItineraryScreen({ navigation, route }) {
           <AppButton title="Replace Stops" onPress={() => generate(true)} disabled={!!savingStatus} />
           <AppButton title="Keep Current Stops" variant="outline" onPress={() => setReplacePending(false)} />
         </View> : null}
-        {suggestionMessage ? <Text style={{ color: theme.colors.textMuted, marginVertical: 12 }}>{suggestionMessage}</Text> : null}
+        <ItineraryTipCard message={suggestionMessage} />
 
         {formError && !formError.includes('Travel date') ? (
           <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerSoft, borderColor: theme.colors.danger }]}>

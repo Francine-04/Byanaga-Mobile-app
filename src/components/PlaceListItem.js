@@ -12,7 +12,7 @@ export default function PlaceListItem({ place, onPress, subtitle, showRating = t
   return (
     <View style={[styles.row, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={'Open ' + place.name} onPress={onPress} style={styles.main}>
-        <PlaceholderImage image={place.image} label={place.name + ' photo placeholder'} aspectRatio={1} style={styles.photo} iconSize={32} />
+        <PlaceholderImage image={place.image} label={place.name + ' photo'} resizeMode="cover" aspectRatio={1} style={styles.photo} iconSize={32} />
         <View style={styles.body}>
           <Text style={[styles.name, { color: theme.colors.text }]}>{place.name}</Text>
           {subtitle ? <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>{subtitle}</Text> : null}

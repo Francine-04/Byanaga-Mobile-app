@@ -93,4 +93,4 @@ export const destinations = [
   },
 ];
 
-export const categories = ['All', 'Nature', 'Church', 'Culture', 'Food', 'Shopping', 'Accommodation', 'Events'];
+export const categories = ['All', 'Nature', 'Church', 'Culture', 'Historical', 'Food', 'Shopping', 'Accommodation', 'Events'];

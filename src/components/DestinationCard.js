@@ -15,6 +15,7 @@ export default function DestinationCard({
   horizontal = false,
   compact = false,
   showQuickAdd = true,
+  recommendation,
 }) {
   const { theme } = useApp();
 
@@ -25,7 +26,8 @@ export default function DestinationCard({
       <Pressable accessibilityRole="button" accessibilityLabel={`Open ${destination.name}`} onPress={onPress} disabled={!onPress}>
         <PlaceholderImage
           image={destination.image}
-          label="Destination Image"
+          label={`${destination.name} photo`}
+          resizeMode="cover"
           aspectRatio={horizontal || compact ? 1 : 1.4}
           style={horizontal ? styles.horizontalImage : [styles.verticalImage, compact && styles.compactImage]}
         />
@@ -62,8 +64,14 @@ export default function DestinationCard({
         <View style={styles.metaRow}>
           <Rating value={destination.rating} />
           <Meta icon="navigate-outline" label={destination.distance} color={theme.colors.textMuted} />
-          <Meta icon="time-outline" label={destination.estimatedVisitTime} color={theme.colors.textMuted} />
+          <Meta icon="time-outline" label={destination.estimatedVisitTime === 'Confirm visit duration' ? 'Not listed' : destination.estimatedVisitTime} color={theme.colors.textMuted} />
         </View>
+        {recommendation ? <View style={styles.recommendation}>
+          <Text style={{ color: theme.colors.textMuted, fontSize: 12, lineHeight: 18 }}>{recommendation.description}</Text>
+          <View style={styles.reasonTags}>
+            {recommendation.tags.map((tag) => <Text key={tag} style={[styles.reasonTag, { color: theme.colors.primary, backgroundColor: theme.colors.primarySoft }]}>{tag}</Text>)}
+          </View>
+        </View> : null}
         {showQuickAdd ? (
           <Pressable
             accessibilityRole="button"
@@ -129,6 +137,7 @@ const styles = StyleSheet.create({
   },
   horizontalBody: {
     flex: 1,
+    minWidth: 0,
     padding: 12,
   },
   titleRow: {
@@ -188,4 +197,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
+  recommendation: { marginTop: 10 },
+  reasonTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 },
+  reasonTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, fontSize: 10, lineHeight: 15 },
 });

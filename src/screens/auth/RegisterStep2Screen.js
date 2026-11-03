@@ -13,7 +13,8 @@ const placeOptions = ['Nature', 'Mountains', 'Churches', 'Museums', 'Historical'
 const activityOptions = ['Walking', 'Food Trips', 'Photography', 'Museum Tour', 'Sightseeing', 'Camping', 'Adventure', 'Relaxation'];
 const styleOptions = ['Solo', 'Couple', 'Friends', 'Family'];
 const budgetOptions = ['Budget', 'Moderate', 'Luxury'];
-const durationOptions = ['Half Day', 'One Day', 'Weekend'];
+import { durationOptions } from '../../utils/tripDuration';
+import SelectField from '../../components/SelectField';
 
 export default function RegisterStep2Screen({ navigation, route }) {
   const { theme, firebaseUser, setPreferences, setProfile, setIsGuestMode, setIsLoggedIn } = useApp();
@@ -121,11 +122,12 @@ export default function RegisterStep2Screen({ navigation, route }) {
         selected={[draft.budget]}
         onPress={(label) => chooseSingle('budget', label)}
       />
-      <PreferenceGroup
-        title="Trip Duration"
+      <SelectField
+        label="Trip Duration"
         options={durationOptions}
-        selected={[draft.duration]}
-        onPress={(label) => chooseSingle('duration', label)}
+        value={draft.duration}
+        searchable
+        onSelect={(label) => chooseSingle('duration', label)}
       />
       {error ? <Text accessibilityRole="alert" style={[styles.error, { color: theme.colors.danger }]}>{error}</Text> : null}
       <AppButton title={saving ? 'Creating account...' : 'Save Preferences'} onPress={savePreferences} disabled={saving} style={styles.button} />

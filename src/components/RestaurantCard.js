@@ -17,7 +17,8 @@ export default function RestaurantCard({ restaurant, compact = false, showAction
     <AppCard accessibilityLabel={`Open ${restaurant.name}`} onPress={onPress} style={[styles.card, compact && styles.compactCard, style]}>
       <PlaceholderImage
         image={restaurant.image}
-        label="Restaurant placeholder"
+        label={`${restaurant.name} photo`}
+        resizeMode="cover"
         aspectRatio={compact ? 1.16 : 1.25}
         style={compact ? styles.compactImage : styles.image}
       />

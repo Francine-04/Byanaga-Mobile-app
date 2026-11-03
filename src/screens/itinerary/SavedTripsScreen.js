@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import { emptyStates } from '../../data/emptyStates';
-import AppHeader, { goToDashboard } from '../../components/AppHeader';
+import AppHeader, { goBackToPrevious } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import EmptyState from '../../components/EmptyState';
 import PlaceholderImage from '../../components/PlaceholderImage';
@@ -45,7 +45,7 @@ export default function SavedTripsScreen({ navigation, route }) {
   
   return (
     <Screen contentStyle={styles.content}>
-      <AppHeader centered title="Saved Trips" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
+      <AppHeader centered title="Saved Trips" onBack={() => goBackToPrevious(navigation)} backLabel="Back to previous screen" />
       {actionError || itineraryError ? (
         <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerSoft, borderColor: theme.colors.danger }]}>
           <Text style={[styles.errorText, { color: theme.colors.danger }]}>{actionError || itineraryError}</Text>

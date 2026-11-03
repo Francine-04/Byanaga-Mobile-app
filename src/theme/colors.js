@@ -17,7 +17,7 @@ export const brandColors = {
 export const crowdColors = {
   low: brandColors.green,
   moderate: brandColors.yellow,
-  busy: brandColors.red,
+  busy: '#F97316',
   crowded: brandColors.red,
 };
 

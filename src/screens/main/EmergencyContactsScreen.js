@@ -3,7 +3,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import { emergencyContacts, emergencyDirectoryUrl } from '../../data/emergencyContacts';
-import AppHeader, { goToDashboard } from '../../components/AppHeader';
+import AppHeader, { goBackToPrevious } from '../../components/AppHeader';
 import Screen from '../../components/Screen';
 
 export default function EmergencyContactsScreen({ navigation }) {
@@ -16,7 +16,7 @@ export default function EmergencyContactsScreen({ navigation }) {
   };
   return (
     <Screen contentStyle={styles.content}>
-      <AppHeader centered title="Emergency Contacts" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
+      <AppHeader centered title="Emergency Contacts" onBack={() => goBackToPrevious(navigation)} backLabel="Back to previous screen" />
       <View style={[styles.notice, { backgroundColor: theme.colors.dangerSoft }]}>
         <Ionicons name="alert-circle-outline" size={30} color={theme.colors.danger} />
         <View style={styles.noticeBody}>
