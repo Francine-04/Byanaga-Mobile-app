@@ -4,59 +4,6 @@ const { createLoader, plain } = require('./helpers/load.cjs');
 const load = createLoader({ './placeImages': { getPlaceImage: () => null } });
 const { generateItinerary } = load('src/utils/generateItinerary.js');
 const { matchByPreferences } = load('src/utils/preferenceMatching.js');
-const { recommendationDetails } = load('src/utils/preferenceMatching.js');
-const { personalizedRecommendations } = load('src/utils/preferenceMatching.js');
-const { tripDayCount } = load('src/utils/tripDuration.js');
-
-test('day and week durations create consecutive days without repeating stops', () => {
-  assert.equal(tripDayCount('3 Days'), 3);
-  assert.equal(tripDayCount('2 Weeks'), 14);
-  assert.equal(tripDayCount('Weekend'), 2);
-  for (const value of ['0 Days', '31 Days', '5 Weeks', 'bad']) assert.throws(() => tripDayCount(value));
-  const catalog = Array.from({ length: 60 }, (_, i) => ({ id: `p${i}`, name: `Place ${i}`, category: 'Nature', latitude: 13.624, longitude: 123.185 }));
-  const result = generateItinerary({ destinations: catalog, preferences: { duration: '2 Weeks' }, travelDate: '2026-10-19', now: new Date('2026-10-19T00:00:00Z') });
-  assert.equal(result.days.length, 14);
-  assert.equal(result.days[13].date, '2026-11-01');
-  const stops = result.days.flatMap((day) => day.places);
-  assert.equal(stops.length, 56);
-  assert.equal(new Set(stops.map((stop) => stop.placeId)).size, 56);
-  const sparse = generateItinerary({ destinations: catalog.slice(0, 1), preferences: { duration: '1 Week' }, travelDate: '2026-10-19' });
-  assert.equal(sparse.days.length, 7);
-  assert.match(sparse.advice, /Some days have no suggested stops/);
-});
-
-test('visible recommendations include newly added interests and remove deselected ones', () => {
-  const catalog = [{ id: 'c1', category: 'Church' }, { id: 'c2', category: 'Church' }, { id: 'c3', category: 'Church' }, { id: 'f1', category: 'Food' }, { id: 's1', category: 'Shopping' }];
-  const before = personalizedRecommendations({ places: ['Churches'] }, catalog);
-  assert.deepEqual(plain(before.map((p) => p.id)), ['c1', 'c2', 'c3']);
-  const added = personalizedRecommendations({ places: ['Churches', 'Food'] }, catalog);
-  assert.equal(added[0].id, 'f1');
-  const replaced = personalizedRecommendations({ places: ['Shopping'] }, catalog);
-  assert.deepEqual(plain(replaced.map((p) => p.id)), ['s1']);
-  assert.equal(personalizedRecommendations({ places: ['Nature'] }, catalog).length, 0);
-});
-
-test('recommendation descriptions explain actual matches and avoid claiming unmatched interests', () => {
-  const preferences = { places: ['Museums', 'Food'], travelStyle: 'Family', budget: 'Budget' };
-  const detail = recommendationDetails(preferences, { category: 'Culture', travelStyle: 'Family', budget: 'Budget' });
-  assert.match(detail.description, /museums/);
-  assert.match(detail.description, /family/);
-  assert.match(detail.description, /budget/);
-  assert.doesNotMatch(detail.description, /food/);
-  assert.deepEqual(plain(detail.tags), ['Museums', 'Family']);
-  const unrelated = recommendationDetails(preferences, { category: 'Nature' });
-  assert.match(unrelated.description, /additional nature stop/);
-  assert.deepEqual(plain(unrelated.tags), []);
-});
-
-test('recommendations include published destination descriptions without inventing missing details', () => {
-  const detail = recommendationDetails({ places: ['Culture'] }, { name: 'Museum', category: 'Culture', description: 'A collection of local art.' });
-  assert.match(detail.description, /A collection of local art\./);
-  assert.match(detail.description, /Recommended because you enjoy culture/);
-  const fallback = recommendationDetails({}, { name: 'Abella', category: 'Culture', description: 'Tourism destination from the dashboard.' });
-  assert.match(fallback.description, /Abella is listed as a culture destination in Naga City/);
-  assert.doesNotMatch(fallback.description, /from the dashboard|because you enjoy/);
-});
 const { isCoordinateInsideNagaCity } = load('src/utils/nagaBoundary.js');
 const now = new Date('2026-09-08T00:00:00Z');
 const place = (id, category = 'Nature', other = {}) => ({ id, name: id, category, latitude: 13.624, longitude: 123.185, ...other });
@@ -68,18 +15,6 @@ test('featured recommendations reflect saved category and activity aliases witho
   assert.equal(matchByPreferences({ places: ['Churches'] }, pool)[0].id, 'church');
   assert.equal(matchByPreferences({ activities: ['Food Trips'] }, pool)[0].id, 'cafe');
   assert.equal(pool[0].id, 'park');
-});
-test('editing saved interests reorders recommendations despite weather and popularity', () => {
-  const catalog = [place('popular-mall', 'Shopping', { visitCount: 9999 }), place('park'), place('cafe', 'Food'), place('church', 'Church')];
-  for (const [interest, expected] of [['Nature', 'park'], ['Food', 'cafe'], ['Churches', 'church'], ['Shopping', 'popular-mall']]) {
-    assert.equal(matchByPreferences({ places: [interest], activities: ['Food Trips'] }, catalog, weather, now)[0].id, expected);
-  }
-  assert.equal(catalog[0].id, 'popular-mall');
-});
-test('historical and museum edits prioritize specific tags over broad Culture aliases', () => {
-  const catalog = [place('gallery', 'Culture', { visitCount: 999 }), place('memorial', 'Historical', { tags: ['Culture', 'Historical'] }), place('museum', 'Culture', { tags: ['Museum'] })];
-  assert.equal(matchByPreferences({ places: ['Historical'] }, catalog)[0].id, 'memorial');
-  assert.equal(matchByPreferences({ places: ['Museums'] }, catalog)[0].id, 'museum');
 });
 test('smart generation reflects preferences, backend IDs and picked duration', () => {
   const result = run({ destinations: pool.map((item) => ({ ...item, dashboardId: `backend-${item.id}` })), preferences: { places: ['Churches'], duration: 'Half Day' } });
@@ -127,27 +62,4 @@ test('events use backend dates and times, preserving empty first days for weeken
 test('published operating hours determine the scheduled visit', () => {
   const result = run({ destinations: [place('restaurant', 'Food', { operatingHours: [{ day: 'Tuesday', isOpen: true, openTime: '11:30', closeTime: '18:00' }] })] });
   assert.equal(result.days[0].places[0].visitTime, '11:30');
-});
-test('generated stops explain preference matches and applicable weather', () => {
-  const result = run({ destinations: [place('cafe', 'Food', { description: 'A local dining stop.' })], preferences: { places: ['Food'] }, weather });
-  const reason = result.days[0].places[0].recommendationReason;
-  assert.match(reason, /A local dining stop/);
-  assert.match(reason, /because you enjoy food/);
-  assert.match(reason, /Rain is possible/);
-  assert.match(result.advice, /Why visit these places/);
-  assert.match(result.advice, /interests in food/);
-  assert.match(result.advice, /Rain is possible/);
-  assert.equal(result.recommendation.summary, result.advice);
-  const future = run({ preferences: { places: ['Nature'] }, weather, travelDate: '2026-09-10' });
-  assert.match(future.days[0].places[0].recommendationReason, /current weather was not used/);
-  assert.doesNotMatch(future.days[0].places[0].recommendationReason, /Rain is possible/);
-});
-test('regenerating uses changed preferences and weather to choose stops', () => {
-  const catalog = [place('park1'), place('park2'), place('cafe1', 'Food'), place('cafe2', 'Food')];
-  const nature = run({ destinations: catalog, preferences: { places: ['Nature'], duration: 'Half Day' } });
-  const food = run({ destinations: catalog, preferences: { places: ['Food'], duration: 'Half Day' } });
-  assert.ok(nature.days[0].places.every((stop) => stop.category === 'Nature'));
-  assert.ok(food.days[0].places.every((stop) => stop.category === 'Food'));
-  const rainy = run({ destinations: catalog, preferences: { duration: 'Half Day' }, weather });
-  assert.ok(rainy.days[0].places.every((stop) => stop.category === 'Food'));
 });

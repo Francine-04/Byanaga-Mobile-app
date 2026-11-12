@@ -1,22 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../../context/AppContext';
-import AppHeader, { goBackToPrevious } from '../../components/AppHeader';
+import AppHeader, { goToDashboard } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import CategoryChip from '../../components/CategoryChip';
 import Screen from '../../components/Screen';
 import { saveTravelerPreferences } from '../../services/authService';
 import { validatePreferenceForm } from '../../utils/authValidation';
 import { redirectToLogin } from '../../utils/guestAccess';
-import { normalizePreferences } from '../../utils/travelerPreferences';
-import { durationOptions } from '../../utils/tripDuration';
-import SelectField from '../../components/SelectField';
 
 const groups = [
   { field: 'places', title: 'Places you enjoy', multi: true, options: ['Nature', 'Mountains', 'Churches', 'Museums', 'Historical', 'Food', 'Shopping', 'Events', 'Photography', 'Parks', 'Family Friendly'] },
   { field: 'activities', title: 'Activities you enjoy', multi: true, options: ['Walking', 'Food Trips', 'Photography', 'Museum Tour', 'Sightseeing', 'Camping', 'Adventure', 'Relaxation'] },
   { field: 'travelStyle', title: 'Travel style', options: ['Solo', 'Couple', 'Friends', 'Family'] },
   { field: 'budget', title: 'Budget', options: ['Budget', 'Moderate', 'Luxury'] },
+  { field: 'duration', title: 'Trip duration', options: ['Half Day', 'One Day', 'Weekend'] },
 ];
 
 export default function TravelPreferencesScreen({ navigation }) {
@@ -38,10 +36,9 @@ export default function TravelPreferencesScreen({ navigation }) {
     setSaving(true);
     setError('');
     try {
-      const savedPreferences = normalizePreferences(draft);
-      await saveTravelerPreferences(firebaseUser.uid, savedPreferences);
-      setPreferences(savedPreferences);
-      goBackToPrevious(navigation);
+      await saveTravelerPreferences(firebaseUser.uid, draft);
+      setPreferences(draft);
+      navigation.goBack();
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save preferences.');
     } finally {
@@ -50,7 +47,7 @@ export default function TravelPreferencesScreen({ navigation }) {
   };
   return (
     <Screen contentStyle={styles.content}>
-      <AppHeader centered title="Travel Preferences" onBack={() => goBackToPrevious(navigation)} backLabel="Back to previous screen" />
+      <AppHeader centered title="Travel Preferences" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
       {groups.map((group) => (
         <View key={group.field} style={styles.group}>
           <Text style={[styles.label, { color: theme.colors.text }]}>{group.title}</Text>
@@ -60,7 +57,6 @@ export default function TravelPreferencesScreen({ navigation }) {
           </View>
         </View>
       ))}
-      <SelectField label="Trip duration" value={draft.duration} options={durationOptions} searchable onSelect={(option) => choose({ field: 'duration' }, option)} />
       {error ? <Text accessibilityRole="alert" style={[styles.error, { color: theme.colors.danger }]}>{error}</Text> : null}
       <AppButton title={saving ? 'Saving...' : 'Save Preferences'} onPress={save} disabled={saving} style={styles.save} />
     </Screen>

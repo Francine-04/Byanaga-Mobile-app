@@ -24,7 +24,7 @@ export default function WebDeviceFrame({ children }) {
           <Text style={[styles.statusText, { color: theme.dark ? '#F8FAFC' : '#06121F' }]}>9:41</Text>
           <Text style={[styles.statusText, { color: theme.dark ? '#F8FAFC' : '#06121F' }]}>BYANAGA</Text>
         </View> : null}
-        <View nativeID="app-device-screen" key="app-screen" style={[styles.screen, { backgroundColor: theme.colors.background }, !framed && styles.flatScreen]}>{children}</View>
+        <View key="app-screen" style={[styles.screen, { backgroundColor: theme.colors.background }, !framed && styles.flatScreen]}>{children}</View>
       </View>
     </View>
   );

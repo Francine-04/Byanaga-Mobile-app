@@ -8,11 +8,9 @@ import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
 import MapPlaceholder from '../../components/MapPlaceholder';
 import Screen from '../../components/Screen';
-import { requestLocationAccess } from '../../services/locationAccess';
-import { setRecordingConsent } from '../../services/automaticVisitService';
 
-export default function LocationPermissionScreen({ navigation, route }) {
-  const { theme, setLocationPermission, automaticVisits } = useApp();
+export default function LocationPermissionScreen({ navigation }) {
+  const { theme, setLocationPermission } = useApp();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,17 +19,9 @@ export default function LocationPermissionScreen({ navigation, route }) {
     setSaving(true);
     setError('');
     try {
-      if (choice === 'allowed' && await requestLocationAccess() !== 'granted') {
-        await setRecordingConsent(false);
-        throw new Error('Location access is unavailable. Enable location access in your device or browser settings, then try again. You can also skip.');
-      }
-      // Permission alone is not consent: the button explicitly authorizes recording.
-      await setRecordingConsent(choice === 'allowed');
       await completeTravelerOnboarding(choice);
       setLocationPermission(choice);
-      automaticVisits.retryPermission();
-      if (route?.params?.returnToPrevious && navigation.canGoBack()) navigation.goBack();
-      else navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (cause) { setError(cause.message || 'Unable to save your choice. Please try again.'); }
     finally { setSaving(false); }
   };
@@ -46,9 +36,9 @@ export default function LocationPermissionScreen({ navigation, route }) {
           <Ionicons name="shield-checkmark-outline" size={22} color={theme.colors.primary} />
         </View>
         <View style={styles.privacyText}>
-          <Text style={[styles.privacyTitle, { color: theme.colors.text }]}>Automatically save your visits</Text>
+          <Text style={[styles.privacyTitle, { color: theme.colors.text }]}>Anonymous data collection</Text>
           <Text style={[styles.privacyCopy, { color: theme.colors.textMuted }]}>
-            With your consent, GPS confirms visits to registered Naga destinations while the app is open. We privately save your account ID, destination, date and time. No check-in button or two-hour stay is needed.
+            Your location is collected anonymously to improve tourism services and recommendations.
           </Text>
         </View>
       </AppCard>
@@ -58,11 +48,11 @@ export default function LocationPermissionScreen({ navigation, route }) {
         </View>
         <View style={styles.privacyText}>
           <Text style={[styles.privacyTitle, { color: theme.colors.text }]}>Exact location stays private</Text>
-          <Text style={[styles.privacyCopy, { color: theme.colors.textMuted }]}>GPS readings stay on your device. The heatmap shares only visit totals, never your movement history. You can turn recording off in Data Sharing settings.</Text>
+          <Text style={[styles.privacyCopy, { color: theme.colors.textMuted }]}>We never display your exact location.</Text>
         </View>
       </AppCard>
       {error ? <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>{error}</Text> : null}
-      <AppButton title={saving ? 'Saving...' : 'Allow Location & Save Visits'} disabled={saving} icon="navigate-outline" onPress={() => finish('allowed')} style={styles.button} />
+      <AppButton title={saving ? 'Saving...' : 'Allow Location'} disabled={saving} icon="navigate-outline" onPress={() => finish('allowed')} style={styles.button} />
       <AppButton title="Skip" disabled={saving} variant="outline" onPress={() => finish('skipped')} style={styles.skipButton} />
     </Screen>
   );

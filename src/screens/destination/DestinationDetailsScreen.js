@@ -9,14 +9,13 @@ import CategoryChip from '../../components/CategoryChip';
 import PlaceholderImage from '../../components/PlaceholderImage';
 import Rating from '../../components/Rating';
 import Screen from '../../components/Screen';
-import { withSuppliedPlaceImages } from '../../utils/suppliedPlaceImages';
 
 const tabs = ['Overview', 'Photos', 'Reviews', 'Nearby'];
 
 export default function DestinationDetailsScreen({ navigation, route }) {
   const { theme, bookmarks, destinations, weather } = useApp();
   const toggleBookmark = useBookmarkAction();
-  const destination = withSuppliedPlaceImages(route.params?.destination || destinations[0]);
+  const destination = route.params?.destination || destinations[0];
   const [message, setMessage] = useState('');
   const bookmarked = bookmarks.includes(destination.id);
   const share = async () => {
@@ -76,11 +75,11 @@ export default function DestinationDetailsScreen({ navigation, route }) {
         <Text style={[styles.title, { color: theme.colors.text }]}>{destination.name}</Text>
         <Text style={[styles.category, { color: theme.colors.textMuted }]}>{destination.category || destination.cuisine}</Text>
         <View style={styles.ratingRow}>
-          <Rating value={destination.rating} label={destination.source === 'geoapify' ? undefined : 'sample rating'} />
+          <Rating value={destination.rating} label="sample rating" />
           <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.distance}</Text>
           <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.estimatedVisitTime}</Text>
           <View style={[styles.openBadge, { backgroundColor: theme.colors.primarySoft }]}>
-            <Text style={[styles.openText, { color: theme.colors.primary }]}>{destination.source === 'geoapify' ? 'Mapped place' : 'Sample details'}</Text>
+            <Text style={[styles.openText, { color: theme.colors.primary }]}>Sample details</Text>
           </View>
         </View>
       </View>
@@ -98,7 +97,6 @@ export default function DestinationDetailsScreen({ navigation, route }) {
       </View>
 
       <View style={styles.infoCard}>
-        {destination.source === 'geoapify' ? <Text accessibilityRole="link" onPress={() => Linking.openURL('https://www.geoapify.com/')} style={{ color: theme.colors.textMuted, fontSize: 11, marginBottom: 10 }}>Powered by Geoapify · © OpenStreetMap contributors</Text> : null}
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>About</Text>
         <Text style={[styles.description, { color: theme.colors.textMuted }]}>{destination.description || 'A sample local dining stop for your Naga City itinerary.'}</Text>
         <Info icon="time-outline" label="Opening Hours" value={destination.openingHours} />

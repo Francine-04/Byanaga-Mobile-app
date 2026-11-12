@@ -5,7 +5,6 @@ import { useApp } from '../context/AppContext';
 
 export default function Rating({ value, label }) {
   const { theme } = useApp();
-  if (value == null) return <Text style={{ color: theme.colors.textMuted, fontSize: 11 }}>Not rated</Text>;
 
   return (
     <View style={styles.row} accessibilityLabel={`Rating ${value}`}>

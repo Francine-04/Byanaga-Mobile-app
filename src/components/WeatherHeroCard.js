@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensio
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fallbackWeather } from '../services/weatherService';
-import { weatherIcon } from '../utils/weatherIcon';
 
 export default function WeatherHeroCard({ theme, weather, weatherError, onRefresh, style }) {
   const [refreshing, setRefreshing] = useState(false);
@@ -55,7 +54,7 @@ function CompactLayout({ display, weatherError, tight }) {
       <View style={[styles.compactTop, tight && styles.compactTopTight]}>
         <View style={[styles.compactConditionColumn, tight && styles.compactConditionColumnTight]}>
           <WeatherGlyph condition={display.condition} isDay={display.isDay} size={tight ? 74 : 82} />
-          <Text style={[styles.conditionText, styles.compactConditionText, tight && styles.compactConditionTextTight]}>{display.condition}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.conditionText, styles.compactConditionText, tight && styles.compactConditionTextTight]}>{display.condition}</Text>
         </View>
 
         <View style={styles.compactTemperatureColumn}>
@@ -84,7 +83,7 @@ function WideLayout({ display, weatherError }) {
     <View style={styles.wideContent}>
       <View style={styles.wideConditionColumn}>
         <WeatherGlyph condition={display.condition} isDay={display.isDay} size={106} />
-        <Text style={styles.conditionText}>{display.condition}</Text>
+        <Text numberOfLines={1} style={styles.conditionText}>{display.condition}</Text>
       </View>
 
       <View style={styles.divider} />
@@ -144,16 +143,51 @@ function WeatherStatus({ weatherError, source }) {
   if (source === 'open-meteo' && !weatherError) return null;
   return (
     <Text numberOfLines={2} style={styles.statusText}>
-      {source === 'open-meteo' ? 'Showing last weather update. Try refreshing.' : 'Weather unavailable. Please try again.'}
+      {source === 'open-meteo' ? 'Last reading; refresh unavailable' : 'Weather unavailable. Please try again.'}
     </Text>
   );
 }
 
 function WeatherGlyph({ condition, isDay, size }) {
-  const icon = weatherIcon(condition, isDay);
+  const scale = size / 100;
+  const value = String(condition || '').toLowerCase();
+  const night = isDay === false;
+  const rainy = value.includes('rain') || value.includes('shower') || value.includes('storm') || value.includes('drizzle');
+  const cloudy = rainy || value.includes('cloud') || value.includes('fog');
+  const sunny = !night && (!cloudy || value.includes('partly') || value.includes('clear') || value.includes('sun'));
+
   return (
-    <View accessible accessibilityLabel={`${condition}. ${isDay === false ? 'Nighttime' : 'Daytime'} weather.`} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name={icon.name} size={size * 0.85} color={icon.color} />
+    <View style={{ width: size, height: size }}>
+      {night ? (
+        <View style={[styles.moon, { width: 48 * scale, height: 48 * scale, borderRadius: 24 * scale, top: 8 * scale, right: 10 * scale }]}>
+          <View style={[styles.moonCutout, { width: 42 * scale, height: 42 * scale, borderRadius: 21 * scale, top: -5 * scale, right: -7 * scale }]} />
+        </View>
+      ) : null}
+
+      {sunny ? (
+        <>
+          <View style={[styles.sun, { width: 46 * scale, height: 46 * scale, borderRadius: 23 * scale, top: 7 * scale, right: 7 * scale }]} />
+          <View style={[styles.sunRay, { top: 0, right: 29 * scale, height: 13 * scale }]} />
+          <View style={[styles.sunRay, { top: 25 * scale, right: 0, height: 13 * scale, transform: [{ rotate: '90deg' }] }]} />
+          <View style={[styles.sunRay, { top: 8 * scale, right: 9 * scale, height: 13 * scale, transform: [{ rotate: '45deg' }] }]} />
+        </>
+      ) : null}
+
+      {cloudy ? (
+        <>
+          <View style={[styles.cloudBubble, { width: 54 * scale, height: 54 * scale, borderRadius: 27 * scale, left: 4 * scale, top: 35 * scale }]} />
+          <View style={[styles.cloudBubble, { width: 48 * scale, height: 48 * scale, borderRadius: 24 * scale, left: 36 * scale, top: 29 * scale }]} />
+          <View style={[styles.cloudBase, { width: 88 * scale, height: 38 * scale, borderRadius: 19 * scale, left: 2 * scale, bottom: 16 * scale }]} />
+        </>
+      ) : null}
+
+      {rainy ? (
+        <View style={styles.rainDrops}>
+          <View style={styles.rainDrop} />
+          <View style={[styles.rainDrop, styles.rainDropMiddle]} />
+          <View style={styles.rainDrop} />
+        </View>
+      ) : null}
     </View>
   );
 }

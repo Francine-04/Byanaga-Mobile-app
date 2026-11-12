@@ -242,7 +242,7 @@ export default function LoginScreen({ navigation, route }) {
     const nextErrors = validateLoginForm({ email, password });
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
-      setFormError('Please enter your registered email address and password.');
+      setFormError('Please enter your registered Gmail address and password.');
       return;
     }
 
@@ -279,8 +279,7 @@ export default function LoginScreen({ navigation, route }) {
           <AppTextInput
             value={email}
             onChangeText={updateEmail}
-            placeholder="Your registered email address"
-            accessibilityLabel="Email address"
+            placeholder="name@gmail.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}

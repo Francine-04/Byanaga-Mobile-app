@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../../context/AppContext';
-import AppHeader, { goBackToPrevious } from '../../components/AppHeader';
+import AppHeader, { goToDashboard } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import Screen from '../../components/Screen';
 import SettingsRow from '../../components/SettingsRow';
@@ -39,7 +39,7 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <Screen contentStyle={styles.content}>
-      <AppHeader centered title="Settings" onBack={() => goBackToPrevious(navigation)} backLabel="Back to previous screen" />
+      <AppHeader centered title="Settings" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
       <Section title="Appearance">
         <SettingsRow icon="sunny-outline" label="Light Mode" selected={themePreference === 'light'} onPress={() => setThemePreference('light')} />
         <SettingsRow icon="moon-outline" label="Dark Mode" selected={themePreference === 'dark'} onPress={() => setThemePreference('dark')} />

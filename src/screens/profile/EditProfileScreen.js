@@ -3,14 +3,13 @@ import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, 
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import { nationalityOptions } from '../../data/nationalities';
-import AppHeader, { goBackToPrevious } from '../../components/AppHeader';
+import AppHeader, { goToDashboard, goToMain } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import AppTextInput from '../../components/AppTextInput';
 import ProfilePortrait from '../../components/ProfilePortrait';
 import Screen from '../../components/Screen';
 import SelectionSheet from '../../components/SelectionSheet';
 import SettingsRow from '../../components/SettingsRow';
-import PhilippineAddressFields from '../../components/PhilippineAddressFields';
 import { saveProfileEdits } from '../../services/profilePhotoService';
 
 export default function EditProfileScreen({ navigation }) {
@@ -58,7 +57,7 @@ export default function EditProfileScreen({ navigation }) {
       setProfile(savedProfile);
       setPhotoAssets({});
       editedFields.current.clear();
-      goBackToPrevious(navigation);
+      goToMain(navigation, 'Profile');
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save your profile.');
     } finally {
@@ -69,7 +68,7 @@ export default function EditProfileScreen({ navigation }) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
       <Screen contentStyle={styles.content}>
-        <AppHeader centered title="Edit Profile" onBack={() => { if (!saveInFlight.current) goBackToPrevious(navigation); }} backLabel="Back to previous screen" />
+        <AppHeader centered title="Edit Profile" onBack={() => { if (!saveInFlight.current) goToDashboard(navigation); }} backLabel="Back to dashboard" />
         <ProfilePortrait navigation={navigation} profile={draft} disabled={saving} onPhotoSelected={handlePhotoSelected} />
         <AppTextInput label="Full Name" value={draft.name} onChangeText={update('name')} autoComplete="name" maxLength={80} editable={!saving} />
         <AppTextInput label="Phone Number" value={draft.phone} onChangeText={update('phone')} keyboardType="phone-pad" autoComplete="tel" placeholder="Add phone number" maxLength={24} editable={!saving} />
@@ -80,7 +79,6 @@ export default function EditProfileScreen({ navigation }) {
           <Text style={[styles.selectValue, { color: theme.colors.text }]}>{draft.nationality}</Text>
           <Ionicons name="chevron-down" size={18} color={theme.colors.textMuted} />
         </Pressable>
-        <PhilippineAddressFields value={draft.homeLocation} onChange={update('homeLocation')} disabled={saving} />
         <View style={[styles.preferenceLink, { borderColor: theme.colors.border }]}>
           <SettingsRow icon="options-outline" label="Travel Preferences" subtitle={preferenceCount + ' interests selected'}
             onPress={() => { if (!saveInFlight.current) navigation.navigate('TravelPreferences'); }} last />

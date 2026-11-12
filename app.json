@@ -34,7 +34,6 @@
       "@react-native-community/datetimepicker",
       "expo-web-browser",
       "expo-apple-authentication",
-      ["expo-location", { "locationWhenInUsePermission": "Allow BYANAGA to confirm visits to registered destinations while you use the app.", "isIosBackgroundLocationEnabled": false, "isAndroidBackgroundLocationEnabled": false }],
       [
         "expo-image-picker",
         {
