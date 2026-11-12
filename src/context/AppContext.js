@@ -39,7 +39,7 @@ import { travelerOnboardingStep } from '../utils/travelerOnboarding';
 
 const AppContext = createContext(null);
 import { fetchGeoapifyPlaces } from '../services/geoapifyPlacesService';
-import { withSuppliedPlaceImages } from '../utils/suppliedPlaceImages';
+import { withSuppliedPlaceImages, placesWithImages } from '../utils/suppliedPlaceImages';
 import { dedupePlaces } from '../utils/dedupePlaces';
 const STORAGE_KEY = 'byanaga.traveler.v1';
 
@@ -364,7 +364,7 @@ export function AppProvider({ children }) {
 
   const destinations = useMemo(() => {
     const merged = dedupeByName([...liveDestinations, ...businessDestinations, ...geoPlaces]);
-    return (merged.length ? merged : fallbackDestinations).map(withSuppliedPlaceImages);
+    return placesWithImages(merged.length ? merged : fallbackDestinations);
   }, [businessDestinations, liveDestinations, geoPlaces]);
 
   const businessRestaurants = useMemo(() => (
@@ -374,8 +374,8 @@ export function AppProvider({ children }) {
   ), [establishmentProfiles]);
 
   const recommendationCatalog = useMemo(() => ({
-    destinations: dedupeByName([...liveDestinations, ...businessDestinations, ...geoPlaces]).map(withSuppliedPlaceImages),
-    restaurants: businessRestaurants.map(withSuppliedPlaceImages),
+    destinations: placesWithImages(dedupeByName([...liveDestinations, ...businessDestinations, ...geoPlaces])),
+    restaurants: placesWithImages(businessRestaurants),
     events: tourismEvents,
     loading: Object.values(catalogState).includes('loading') || eventsSource === 'loading',
     error: backendErrors.destinations || backendErrors.businessProfiles || eventsError || null,
@@ -383,7 +383,7 @@ export function AppProvider({ children }) {
 
   const restaurants = useMemo(() => {
     const merged = dedupeByName([...businessRestaurants, ...geoPlaces.filter((place) => place.category === 'Food')]);
-    return (merged.length ? merged : fallbackRestaurants).map(withSuppliedPlaceImages);
+    return placesWithImages(merged.length ? merged : fallbackRestaurants);
   }, [businessRestaurants, geoPlaces]);
 
   const businessStays = useMemo(() => (
@@ -394,7 +394,7 @@ export function AppProvider({ children }) {
 
   const accommodations = useMemo(() => {
     const merged = dedupeByName([...liveAccommodations, ...businessStays, ...geoPlaces.filter((place) => place.category === 'Accommodation')]);
-    return (merged.length ? merged : fallbackAccommodations).map(withSuppliedPlaceImages);
+    return placesWithImages(merged.length ? merged : fallbackAccommodations);
   }, [businessStays, liveAccommodations, geoPlaces]);
 
   const { notifications, vouchers: liveVouchers, markAllNotificationsRead, markNotificationsRead, notificationError } = useNotificationFeed({

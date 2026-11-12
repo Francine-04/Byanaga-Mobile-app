@@ -20,6 +20,11 @@ export function getSuppliedPlacePhotos(place = {}) {
   return byName.get(normalizePhotoName(place.name)) || [];
 }
 
+// Presentation-only: never delete source records or saved visits.
+export function placesWithImages(places = []) {
+  return places.map(withSuppliedPlaceImages).filter((place) => Boolean(place?.image));
+}
+
 // Applied after catalog merging so both cached API and Firebase records receive
 // the same photos, without changing IDs, coordinates, ratings or visit data.
 export function withSuppliedPlaceImages(place) {
@@ -32,7 +37,8 @@ export function withSuppliedPlaceImages(place) {
   const suppliedIds = new Set(photos.map((photo) => photo.id));
   return {
     ...place,
-    image: photos[0].image,
+    image: matches.every((photo) => photo.fallbackOnly) && place.image
+      ? place.image : photos[0].image,
     photos: [...photos, ...(place.photos || []).filter((photo) => !suppliedIds.has(photo.id))],
     gallery: [
       ...photos.map((photo) => ({ ...photo, imageUrl: photo.image })),

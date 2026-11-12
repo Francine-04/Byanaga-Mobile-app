@@ -9,14 +9,46 @@ const load = createLoader(Object.fromEntries(assets.map((asset) => [asset, { uri
 const { suppliedPlacePhotos } = load('src/data/suppliedPlacePhotos.js');
 const { withSuppliedPlaceImages, getSuppliedPlacePhotos, suppliedFoodPhotos } = load('src/utils/suppliedPlaceImages.js');
 
-test('all 235 supplied images are registered with existing, mobile-compatible assets', () => {
-  assert.equal(suppliedPlacePhotos.length, 235);
-  assert.equal(new Set(assets).size, 235);
-  assert.equal(new Set(suppliedPlacePhotos.map((photo) => photo.sourceFile)).size, 235);
+test('confirmed update photos cover all fifteen venues and image-less listings are hidden without mutation', () => {
+  const { placesWithImages } = load('src/utils/suppliedPlaceImages.js');
+  const names = ['Shabu-Shabu 249', 'Popeyes', 'Jollibee', 'Naga Garden', 'Maki Yaki',
+    "Shakey's", 'Soledad', 'Graceland', 'Romantic Baboy', "Rafabel's", 'White Bean',
+    'Ice Blinker', 'Primus Hotel and Resort', 'RedDoorz', 'Sunny View'];
+  for (const name of names) {
+    assert.match(withSuppliedPlaceImages({ name }).image.uri, /supplied\/update-/);
+  }
+  const source = [
+    { id: 'missing', name: 'Unmatched place', image: null },
+    { id: 'local', name: 'Primus Hotel and Resort', image: null },
+    { id: 'remote', name: 'Owner photo', image: 'https://example.com/photo.jpg' },
+  ];
+  const visible = placesWithImages(source);
+  assert.deepEqual(Array.from(visible, (place) => place.id), ['local', 'remote']);
+  assert.equal(source.length, 3);
+  assert.equal(source[1].image, null);
+  assert.equal(placesWithImages(visible).length, 2);
+});
+
+test('all 322 supplied images are registered with existing, mobile-compatible assets', () => {
+  assert.equal(suppliedPlacePhotos.length, 322);
+  assert.equal(new Set(assets).size, 322);
+  assert.equal(new Set(suppliedPlacePhotos.map((photo) => photo.sourceFile)).size, 322);
   for (const asset of assets) {
     assert.match(asset, /\.(jpg|png|webp)$/);
     assert.ok(fs.statSync(path.resolve(__dirname, '../src/data', asset)).size > 0, asset);
   }
+});
+
+test('November photos fill missing restaurant images and retain existing images', () => {
+  const empty = { id: 'red-platter', name: 'Red Platter', image: null };
+  const filled = withSuppliedPlaceImages(empty);
+  assert.ok(filled.image);
+  assert.equal(filled.photos.length, 2);
+  assert.equal(withSuppliedPlaceImages(filled).photos.length, 2);
+  const existing = withSuppliedPlaceImages({ ...empty, image: 'https://example.com/existing.jpg' });
+  assert.equal(existing.image, 'https://example.com/existing.jpg');
+  assert.equal(getSuppliedPlacePhotos({ name: 'Unlisted Restaurant' }).length, 0);
+  assert.ok(getSuppliedPlacePhotos({ name: "McDonald's" }).length);
 });
 
 test('church initials and alternate catalog names match the intended church', () => {
@@ -64,6 +96,6 @@ test('second import matches new names, filename counters and spelling aliases', 
   assert.equal(getSuppliedPlacePhotos({ name: 'SouthPoolSide Tourist Inn' }).length, 3);
   assert.equal(getSuppliedPlacePhotos({ name: 'Unknown Soldier Monument' }).length, 2);
   assert.ok(getSuppliedPlacePhotos({ name: 'Sampaguita Department Store' }).length);
-  assert.equal(getSuppliedPlacePhotos({ name: 'Sunny View' }).length, 0);
+  assert.equal(getSuppliedPlacePhotos({ name: 'Sunny View' }).length, 1);
   assert.equal(getSuppliedPlacePhotos({ name: 'Tabuco Travel Lodge' }).length, 0);
 });
