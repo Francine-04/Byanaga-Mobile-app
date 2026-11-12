@@ -27,7 +27,6 @@ import {
 import { auth, db } from './firebaseApp';
 import { isGmailAddress, isStrongPassword, normalizeEmail, passwordRuleText } from '../utils/authValidation';
 import { normalizePreferences } from '../utils/travelerPreferences';
-import { normalizeHomeLocation } from '../data/philippineLocations';
 
 const USERS_COLLECTION = 'users';
 export const AUTH_REQUIRED_ERROR_CODE = 'auth/required';
@@ -77,7 +76,6 @@ export async function registerTraveler({ email, password, profile, preferences }
       gender: profile.gender || '',
       nationality: profile.nationality || '',
       homeCity: profile.homeCity || '',
-      homeLocation: normalizeHomeLocation(profile.homeLocation),
       countryOfOrigin: profile.countryOfOrigin || profile.nationality || '',
       image: profile.image || null,
       preferences: normalizePreferences(preferences),
@@ -311,7 +309,6 @@ export async function saveTravelerProfile(userId, profile) {
     bio: String(profile.bio || '').trim(),
     coverImage: profile.coverImage || null,
     nationality: profile.nationality || '',
-    ...(profile.homeLocation ? { homeLocation: normalizeHomeLocation(profile.homeLocation), homeCity: normalizeHomeLocation(profile.homeLocation).city } : {}),
     image: profile.image || null,
   };
   await updateDoc(doc(db, USERS_COLLECTION, userId), {
@@ -334,8 +331,6 @@ export function travelerRecordToAppState(record, user) {
       phone: record?.phone || '',
       bio: record?.bio ?? 'I love exploring new places!',
       nationality: record?.nationality ?? 'Filipino',
-      homeLocation: record?.homeLocation || {},
-      homeCity: record?.homeCity || '',
       image: record?.image || null,
       coverImage: record?.coverImage || null,
       email: record?.email || user?.email || '',

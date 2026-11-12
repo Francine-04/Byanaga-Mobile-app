@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import AppHeader, { goBackToPrevious, goToMain } from '../../components/AppHeader';
+import AppHeader, { goToDashboard, goToMain } from '../../components/AppHeader';
 import EmptyState from '../../components/EmptyState';
 import PlaceListItem from '../../components/PlaceListItem';
 import Screen from '../../components/Screen';
@@ -17,7 +17,7 @@ export default function SavedPlacesScreen({ navigation }) {
   const places = [...unique.values()].filter((place) => bookmarks.includes(place.id));
   return (
     <Screen contentStyle={{ paddingTop: 8 }}>
-      <AppHeader centered title="Saved Places" onBack={() => goBackToPrevious(navigation)} backLabel="Back to previous screen" />
+      <AppHeader centered title="Saved Places" onBack={() => goToDashboard(navigation)} backLabel="Back to dashboard" />
       {places.length ? places.map((place) => {
         let onPress;
         if (place.category === 'Events') {

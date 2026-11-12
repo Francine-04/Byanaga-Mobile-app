@@ -8,7 +8,6 @@ import AppButton from '../../components/AppButton';
 import AppCard from '../../components/AppCard';
 import Screen from '../../components/Screen';
 import TimelineItem from '../../components/TimelineItem';
-import ItineraryTipCard from '../../components/ItineraryTipCard';
 import TravelDateField from '../../components/TravelDateField';
 import { manilaDate } from '../../utils/travelSchedule';
 
@@ -37,11 +36,10 @@ export default function SmartItineraryScreen({ navigation }) {
       <TravelDateField value={travelDate} onChange={setTravelDate} style={{ marginTop: 16 }} />
       {pending ? <ActivityIndicator accessibilityLabel="Loading saved preferences and places" color={theme.colors.primary} /> : null}
       {loadError ? <Text accessibilityRole="alert" style={[styles.copy, { color: theme.colors.danger }]}>Unable to load your preferences or tourism places. {loadError}</Text> : null}
-      <ItineraryTipCard message={suggestion.advice} />
+      <Text style={[styles.copy, { color: theme.colors.textMuted }]}>{suggestion.advice}</Text>
       <View style={styles.timeline}>
         {suggestion.days.map((day, dayIndex) => <View key={day.id}>
-          <Text style={[styles.copy, { color: theme.colors.text }]}>Day {dayIndex + 1} · {day.date}</Text>
-          {!day.places.length && <Text style={[styles.copy, { color: theme.colors.textMuted }]}>No suggested stops for this day. Add your own when customizing.</Text>}
+          <Text style={[styles.copy, { color: theme.colors.text }]}>Day {dayIndex + 1}</Text>
           {day.places.map((stop, index) => <TimelineItem key={stop.entryId} stop={stop} isLast={index === day.places.length - 1} />)}
         </View>)}
         {!pending && !loadError && !stops.length ? <Text style={{ color: theme.colors.text }}>No published Naga City places with valid locations are available for these dates.</Text> : null}

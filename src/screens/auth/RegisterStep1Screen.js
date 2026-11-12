@@ -10,9 +10,7 @@ import AppTextInput from '../../components/AppTextInput';
 import Screen from '../../components/Screen';
 import SelectField from '../../components/SelectField';
 import StepProgress from '../../components/StepProgress';
-import BirthdayInput from '../../components/BirthdayInput';
-import PhilippineAddressFields from '../../components/PhilippineAddressFields';
-import { normalizeEmail, passwordRuleText, isStrongPassword, calculateAge, formatBirthday, validateRegistrationProfile } from '../../utils/authValidation';
+import { normalizeEmail, passwordRuleText, calculateAge, formatBirthday, validateRegistrationProfile } from '../../utils/authValidation';
 
 const genderOptions = ['MALE', 'FEMALE'];
 
@@ -33,8 +31,6 @@ export default function RegisterStep1Screen({ navigation }) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const passwordInvalid = Boolean(errors.password) || (form.password.length > 0 && !isStrongPassword(form.password));
-  const passwordValid = !passwordInvalid && isStrongPassword(form.password);
 
   const update = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -114,9 +110,7 @@ export default function RegisterStep1Screen({ navigation }) {
         <View style={styles.row}>
           <View style={styles.half}>
             <Text style={[styles.fieldLabel, { color: theme.colors.textMuted }]}>Birthday</Text>
-            {Platform.OS === 'web' ? (
-              <BirthdayInput value={form.birthday} onChange={(date) => update('birthday', date)} error={errors.birthday} />
-            ) : <Pressable
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel="Select birthday"
               onPress={() => setShowDatePicker(true)}
@@ -126,7 +120,7 @@ export default function RegisterStep1Screen({ navigation }) {
               <Text style={[styles.dateText, { color: birthdayDisplay ? theme.colors.text : theme.colors.textSoft }]}>
                 {birthdayDisplay || 'Select birthday'}
               </Text>
-            </Pressable>}
+            </Pressable>
             {age !== null && <Text style={[styles.ageHint, { color: theme.colors.textMuted }]}>Age: {age} years old</Text>}
             {errors.birthday ? <Text style={[styles.fieldError, { color: theme.colors.danger }]}>{errors.birthday}</Text> : null}
           </View>
@@ -160,7 +154,6 @@ export default function RegisterStep1Screen({ navigation }) {
           searchPlaceholder="Search nationality..."
           error={errors.nationality}
         />
-        <PhilippineAddressFields value={form.homeLocation} onChange={(value) => update('homeLocation', value)} />
         <AppTextInput
           label="Gmail Address"
           value={form.email}
@@ -188,10 +181,8 @@ export default function RegisterStep1Screen({ navigation }) {
           rightIconLabel={passwordVisible ? 'Hide password' : 'Show password'}
           onRightIconPress={() => setPasswordVisible((value) => !value)}
           error={errors.password}
-          invalid={passwordInvalid}
-          valid={passwordValid}
         />
-        <Text style={[styles.helpText, { color: passwordInvalid ? theme.colors.danger : passwordValid ? theme.colors.success : theme.colors.textMuted }]}>{passwordRuleText}</Text>
+        <Text style={[styles.helpText, { color: theme.colors.textMuted }]}>{passwordRuleText}</Text>
         <AppTextInput
           label="Confirm Password"
           value={form.confirmPassword}

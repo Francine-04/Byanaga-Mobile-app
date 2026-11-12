@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import useBookmarkAction from '../../hooks/useBookmarkAction';
-import { matchByPreferences, personalizedRecommendations, recommendationDetails } from '../../utils/preferenceMatching';
+import { matchByPreferences } from '../../utils/preferenceMatching';
 import { isEventInCurrentWeek } from '../../utils/eventDate';
 import { getFirstName, getTimeGreeting } from '../../utils/travelerGreeting';
 import AccommodationCard from '../../components/AccommodationCard';
@@ -46,11 +46,8 @@ export default function HomeScreen({ navigation }) {
   const [now, setNow] = useState(() => new Date());
   const featured = matchByPreferences(isGuestMode ? {} : preferences, destinations, weather).slice(0, 3);
   const recommendedPlaces = useMemo(
-    () => {
-      const catalog = [...new Map([...destinations, ...restaurants, ...accommodations].map((place) => [place.id, place])).values()];
-      return personalizedRecommendations(isGuestMode ? {} : preferences, catalog, weather, now, isGuestMode ? 2 : 3);
-    },
-    [isGuestMode, preferences, destinations, restaurants, accommodations, weather, now]
+    () => matchByPreferences(isGuestMode ? {} : preferences, destinations, weather, now).slice(0, 4),
+    [isGuestMode, preferences, destinations, weather, now]
   );
   const homeEvents = useMemo(
     () => tourismEvents.filter((event) => isEventInCurrentWeek(event, now)).slice(0, 4),
@@ -73,48 +70,6 @@ export default function HomeScreen({ navigation }) {
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') setNow(new Date()); });
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
-
-  const preferenceLabels = [...new Set([...(preferences.places || []), ...(preferences.activities || []), preferences.travelStyle, preferences.budget].filter(Boolean))];
-  const recommendationsSection = (
-    <>
-      {!isGuestMode && <View style={[styles.preferenceSummary, { backgroundColor: theme.colors.primarySoft }]}>
-        <View style={styles.preferenceHeading}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Your Travel Preferences</Text>
-            <Text style={[styles.preferenceCopy, { color: theme.colors.textMuted }]}>Discover destinations that match your interests.</Text>
-          </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Edit travel preferences" onPress={() => navigation.navigate('TravelPreferences')} style={[styles.preferenceEdit, { backgroundColor: theme.colors.primary }]}>
-            <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Edit</Text>
-          </Pressable>
-        </View>
-        <View style={styles.preferenceChips}>
-          {preferenceLabels.map((label) => <Text key={label} style={[styles.preferenceChip, { color: theme.colors.primary, backgroundColor: theme.colors.surface }]}>{label}</Text>)}
-          {!preferenceLabels.length && <Text style={{ color: theme.colors.textMuted }}>Add your interests to personalize recommendations.</Text>}
-        </View>
-      </View>}
-      <SectionHeader
-        title={isGuestMode ? 'Recommended Places' : 'Recommended for You'}
-        onPress={() => navigation.navigate('Explore')}
-      />
-      {!isGuestMode && <Text style={[styles.recommendationIntro, { color: theme.colors.textMuted }]}>
-        {preferenceLabels.length ? `Suggestions based on your preferences for ${preferenceLabels.slice(0, 3).join(', ').toLowerCase()}${preferenceLabels.length > 3 ? ' and more' : ''}.` : 'Explore these destinations, or add preferences for more personal suggestions.'}
-      </Text>}
-      {recommendedPlaces.slice(0, isGuestMode ? 2 : 3).map((destination) => (
-        <DestinationCard
-          key={`recommended-${destination.id}`}
-          destination={destination}
-          horizontal
-          recommendation={isGuestMode ? undefined : recommendationDetails(preferences, destination)}
-          bookmarked={bookmarks.includes(destination.id)}
-          onBookmark={() => toggleBookmark(destination.id)}
-          onQuickAdd={() => navigation.navigate('CreateItinerary')}
-          onPress={() => navigation.navigate('DestinationDetails', { destination })}
-        />
-      ))}
-      {!recommendedPlaces.length && <Text style={[styles.recommendationIntro, { color: theme.colors.textMuted }]}>No places match your saved interests yet. Try another interest or browse Explore. Scheduled events are listed in Events on this dashboard.</Text>}
-    </>
-  );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -166,15 +121,6 @@ export default function HomeScreen({ navigation }) {
           <Ionicons name="options-outline" size={18} color={theme.colors.textMuted} />
         </Pressable>
 
-        <Text style={[styles.quickTitle, { color: theme.colors.text }]}>Quick Access</Text>
-        <View style={styles.quickGrid}>
-          <QuickAccess icon="clipboard-outline" label="Smart Itinerary" onPress={() => navigation.navigate('SmartItinerary')} />
-          <QuickAccess icon="calendar-outline" label="Events" onPress={() => navigation.navigate('Events')} />
-          <QuickAccess icon="storefront-outline" label="Establishments" onPress={() => navigation.navigate('Establishments')} />
-        </View>
-
-        {!isGuestMode && recommendationsSection}
-
         <SectionHeader title="Featured Destinations" onPress={() => navigation.navigate('Explore')} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {featured.map((destination) => (
@@ -190,6 +136,13 @@ export default function HomeScreen({ navigation }) {
             />
           ))}
         </ScrollView>
+
+        <Text style={[styles.quickTitle, { color: theme.colors.text }]}>Quick Access</Text>
+        <View style={styles.quickGrid}>
+          <QuickAccess icon="clipboard-outline" label="Smart Itinerary" onPress={() => navigation.navigate('SmartItinerary')} />
+          <QuickAccess icon="calendar-outline" label="Events" onPress={() => navigation.navigate('Events')} />
+          <QuickAccess icon="storefront-outline" label="Establishments" onPress={() => navigation.navigate('Establishments')} />
+        </View>
 
         {vouchers.length ? (
           <>
@@ -208,6 +161,15 @@ export default function HomeScreen({ navigation }) {
         ) : null}
 
         <SectionHeader title="Local Establishments" onPress={() => navigation.navigate('Establishments')} />
+        {/* DEBUG: Show establishment count */}
+        {__DEV__ && (
+          <AppCard style={{ marginBottom: 8, padding: 12 }}>
+            <Text style={{ fontSize: 11, color: theme.colors.textMuted }}>
+              🔍 DEBUG: {establishments.length} approved establishments loaded
+              {establishments.length > 0 && ` (${establishments.map(e => e.categoryLabel || e.category).join(', ')})`}
+            </Text>
+          </AppCard>
+        )}
         {establishments.length ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {establishments.slice(0, 5).map((establishment) => (
@@ -271,7 +233,21 @@ export default function HomeScreen({ navigation }) {
           ))}
         </ScrollView>
 
-        {isGuestMode && recommendationsSection}
+        <SectionHeader 
+          title={isGuestMode ? "Recommended Places" : "Recommended for You"} 
+          onPress={() => navigation.navigate('Explore')} 
+        />
+        {recommendedPlaces.slice(0, 2).map((destination) => (
+          <DestinationCard
+            key={`recommended-${destination.id}`}
+            destination={destination}
+            horizontal
+            bookmarked={bookmarks.includes(destination.id)}
+            onBookmark={() => toggleBookmark(destination.id)}
+            onQuickAdd={() => navigation.navigate('CreateItinerary')}
+            onPress={() => navigation.navigate('DestinationDetails', { destination })}
+          />
+        ))}
 
         <View style={styles.grid}>
           <InfoTile icon="bulb-outline" title="Travel Tips" copy="Carry water, check crowd labels, and plan rest stops." />
@@ -337,13 +313,6 @@ function toTitleCase(value) {
 }
 
 const styles = StyleSheet.create({
-  preferenceSummary: { marginTop: 18, padding: 14, borderRadius: 18 },
-  preferenceHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  preferenceCopy: { marginTop: 4, fontSize: 12, lineHeight: 18 },
-  preferenceEdit: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  preferenceChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 },
-  preferenceChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, fontSize: 11, lineHeight: 16 },
-  recommendationIntro: { fontSize: 12, lineHeight: 18, marginBottom: 12 },
   container: {
     flex: 1,
   },

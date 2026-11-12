@@ -17,8 +17,6 @@ export default function AppTextInput({
   multiline,
   style,
   error,
-  invalid = false,
-  valid = false,
   ...inputProps
 }) {
   const { theme } = useApp();
@@ -26,11 +24,10 @@ export default function AppTextInput({
   return (
     <View style={[styles.field, style]}>
       {label ? <Text style={[styles.label, { color: theme.colors.textMuted }]}>{label}</Text> : null}
-      <View style={[styles.inputWrap, { backgroundColor: theme.colors.input, borderColor: error || invalid ? theme.colors.danger : valid ? theme.colors.success : theme.colors.border }]}>
+      <View style={[styles.inputWrap, { backgroundColor: theme.colors.input, borderColor: error ? theme.colors.danger : theme.colors.border }]}>
         {leftIcon ? <Ionicons name={leftIcon} size={19} color={theme.colors.textMuted} style={styles.leftIcon} /> : null}
         <TextInput
           {...inputProps}
-          aria-invalid={Boolean(error || invalid)}
           accessibilityLabel={inputProps.accessibilityLabel || label || placeholder}
           value={value}
           onChangeText={onChangeText}

@@ -1,4 +1,3 @@
-import { tripDayCount } from './tripDuration';
 export const passwordRuleText = 'Use 8-15 characters with 1 uppercase letter, 1 number, and 1 special character.';
 export const incorrectLoginMessage = 'Incorrect email or password.';
 
@@ -105,10 +104,8 @@ export function validateLoginForm({ email, password }) {
   const errors = {};
   const normalizedEmail = normalizeEmail(email);
 
-  // Existing Firebase accounts may use other domains or email aliases.
-  // Registration restrictions must not prevent those users from signing in.
-  if (!normalizedEmail) errors.email = 'Email address is required.';
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) errors.email = 'Enter your full email address, including @ and the domain.';
+  if (!normalizedEmail) errors.email = 'Gmail address is required.';
+  else if (!isGmailAddress(normalizedEmail)) errors.email = 'Use the Gmail address you registered with.';
   if (!password) errors.password = 'Password is required.';
 
   return errors;
@@ -121,7 +118,6 @@ export function validatePreferenceForm(preferences) {
   if (!preferences?.travelStyle) errors.push('Choose a travel style.');
   if (!preferences?.budget) errors.push('Choose a budget.');
   if (!preferences?.duration) errors.push('Choose a trip duration.');
-  else { try { tripDayCount(preferences.duration); } catch (error) { errors.push(error.message); } }
   return errors;
 }
 
@@ -138,8 +134,6 @@ export function buildRegistrationProfile(form) {
     name: `${firstName} ${lastName}`.trim(),
     birthday,
     age,
-    homeLocation: form.homeLocation || {},
-    homeCity: form.homeLocation?.city || '',
     gender: form.gender,
     nationality: form.nationality,
     email,
