@@ -6,6 +6,7 @@ import AppHeader, { goToDashboard } from '../../components/AppHeader';
 import CategoryChip from '../../components/CategoryChip';
 import RestaurantCard from '../../components/RestaurantCard';
 import Screen from '../../components/Screen';
+import LocalFoodGallery from '../../components/LocalFoodGallery';
 
 export default function RestaurantsScreen({ navigation }) {
   const { theme, restaurants } = useApp();
@@ -63,9 +64,10 @@ export default function RestaurantsScreen({ navigation }) {
           compact
           showActions={false}
           style={styles.fullCard}
-          onPress={restaurant.dashboardId ? () => navigation.navigate('EstablishmentDetails', { establishmentId: restaurant.dashboardId }) : undefined}
+          onPress={restaurant.dashboardId ? () => navigation.navigate('EstablishmentDetails', { establishmentId: restaurant.dashboardId }) : restaurant.source === 'geoapify' ? () => navigation.navigate('DestinationDetails', { destination: restaurant }) : undefined}
         />
       ))}
+      {!query && filter === 'All' ? <LocalFoodGallery /> : null}
     </Screen>
   );
 }

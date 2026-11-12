@@ -5,6 +5,7 @@ import NetInfo, { useNetInfo } from '@react-native-community/netinfo';
 import { accommodations as fallbackAccommodations } from '../data/accommodations';
 import { destinations as fallbackDestinations } from '../data/destinations';
 import useNotificationFeed from '../hooks/useNotificationFeed';
+import useAutomaticVisits from '../hooks/useAutomaticVisits';
 import { restaurants as fallbackRestaurants } from '../data/restaurants';
 import {
   businessProfileToAccommodation,
@@ -37,9 +38,20 @@ import { emptyPreferences } from '../utils/travelerPreferences';
 import { travelerOnboardingStep } from '../utils/travelerOnboarding';
 
 const AppContext = createContext(null);
+import { fetchGeoapifyPlaces } from '../services/geoapifyPlacesService';
+import { withSuppliedPlaceImages } from '../utils/suppliedPlaceImages';
+import { dedupePlaces } from '../utils/dedupePlaces';
 const STORAGE_KEY = 'byanaga.traveler.v1';
 
 export function AppProvider({ children }) {
+  const [geoPlaces, setGeoPlaces] = useState([]);
+  const [geoPlacesError, setGeoPlacesError] = useState(null);
+  useEffect(() => {
+    let active = true;
+    fetchGeoapifyPlaces().then((places) => { if (active) setGeoPlaces(places); })
+      .catch((error) => { if (active) setGeoPlacesError(error.message); });
+    return () => { active = false; };
+  }, []);
   const systemScheme = useColorScheme();
   const [themePreference, setThemePreference] = useState('light');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -87,6 +99,7 @@ export function AppProvider({ children }) {
   const [storageError, setStorageError] = useState(null);
   const connection = useNetInfo();
   const isOffline = connection.isConnected === false || connection.isInternetReachable === false;
+  const automaticVisits = useAutomaticVisits({ user: firebaseUser, ready: travelerReady, locationPermission, offline: isOffline, guest: isGuestMode });
 
   useEffect(() => {
     let active = true;
@@ -350,9 +363,9 @@ export function AppProvider({ children }) {
   ), [establishmentProfiles]);
 
   const destinations = useMemo(() => {
-    const merged = dedupeByName([...liveDestinations, ...businessDestinations]);
-    return merged.length ? merged : fallbackDestinations;
-  }, [businessDestinations, liveDestinations]);
+    const merged = dedupeByName([...liveDestinations, ...businessDestinations, ...geoPlaces]);
+    return (merged.length ? merged : fallbackDestinations).map(withSuppliedPlaceImages);
+  }, [businessDestinations, liveDestinations, geoPlaces]);
 
   const businessRestaurants = useMemo(() => (
     establishmentProfiles
@@ -361,17 +374,17 @@ export function AppProvider({ children }) {
   ), [establishmentProfiles]);
 
   const recommendationCatalog = useMemo(() => ({
-    destinations: dedupeByName([...liveDestinations, ...businessDestinations]),
-    restaurants: businessRestaurants,
+    destinations: dedupeByName([...liveDestinations, ...businessDestinations, ...geoPlaces]).map(withSuppliedPlaceImages),
+    restaurants: businessRestaurants.map(withSuppliedPlaceImages),
     events: tourismEvents,
     loading: Object.values(catalogState).includes('loading') || eventsSource === 'loading',
     error: backendErrors.destinations || backendErrors.businessProfiles || eventsError || null,
-  }), [liveDestinations, businessDestinations, businessRestaurants, tourismEvents, catalogState, eventsSource, backendErrors.destinations, backendErrors.businessProfiles, eventsError]);
+  }), [liveDestinations, businessDestinations, geoPlaces, businessRestaurants, tourismEvents, catalogState, eventsSource, backendErrors.destinations, backendErrors.businessProfiles, eventsError]);
 
   const restaurants = useMemo(() => {
-    const merged = dedupeByName(businessRestaurants);
-    return merged.length ? merged : fallbackRestaurants;
-  }, [businessRestaurants]);
+    const merged = dedupeByName([...businessRestaurants, ...geoPlaces.filter((place) => place.category === 'Food')]);
+    return (merged.length ? merged : fallbackRestaurants).map(withSuppliedPlaceImages);
+  }, [businessRestaurants, geoPlaces]);
 
   const businessStays = useMemo(() => (
     establishmentProfiles
@@ -380,9 +393,9 @@ export function AppProvider({ children }) {
   ), [establishmentProfiles]);
 
   const accommodations = useMemo(() => {
-    const merged = dedupeByName([...liveAccommodations, ...businessStays]);
-    return merged.length ? merged : fallbackAccommodations;
-  }, [businessStays, liveAccommodations]);
+    const merged = dedupeByName([...liveAccommodations, ...businessStays, ...geoPlaces.filter((place) => place.category === 'Accommodation')]);
+    return (merged.length ? merged : fallbackAccommodations).map(withSuppliedPlaceImages);
+  }, [businessStays, liveAccommodations, geoPlaces]);
 
   const { notifications, vouchers: liveVouchers, markAllNotificationsRead, markNotificationsRead, notificationError } = useNotificationFeed({
     userId: !isGuestMode && firebaseUser && !firebaseUser.isAnonymous ? firebaseUser.uid : null,
@@ -396,7 +409,7 @@ export function AppProvider({ children }) {
     [approvedEstablishmentIds, liveVouchers]
   );
   const establishments = useMemo(() => establishmentProfiles.map((profile) => ({
-    ...profile,
+    ...withSuppliedPlaceImages(profile),
     vouchers: vouchers.filter((voucher) => voucher.establishmentId === profile.dashboardId),
   })), [establishmentProfiles, vouchers]);
 
@@ -509,6 +522,7 @@ export function AppProvider({ children }) {
       onboardingStep,
       recommendationCatalog,
       locationPermission,
+      automaticVisits,
       setLocationPermission,
       preferences,
       setPreferences,
@@ -542,6 +556,7 @@ export function AppProvider({ children }) {
       refreshWeather,
       backendErrors,
       backendStatus,
+      geoPlacesError,
     }),
     [
       theme,
@@ -559,6 +574,7 @@ export function AppProvider({ children }) {
       onboardingStep,
       recommendationCatalog,
       locationPermission,
+      automaticVisits,
       preferences,
       bookmarks,
       toggleBookmark,
@@ -589,6 +605,7 @@ export function AppProvider({ children }) {
       refreshWeather,
       backendErrors,
       backendStatus,
+      geoPlacesError,
     ]
   );
 
@@ -603,13 +620,7 @@ function requireRegisteredTraveler(isGuestMode) {
 }
 
 function dedupeByName(items) {
-  const seen = new Set();
-  return items.filter((item) => {
-    const key = String(item.name || item.title || item.id).trim().toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return dedupePlaces(items);
 }
 
 export function useApp() {

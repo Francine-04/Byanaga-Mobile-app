@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 
-export default function CategoryChip({ label, selected, onPress, icon, style }) {
+export default function CategoryChip({ label, selected, onPress, icon, style, labelStyle, showSelectedIcon = true, labelLines = 1 }) {
   const { theme } = useApp();
 
   return (
@@ -22,12 +22,12 @@ export default function CategoryChip({ label, selected, onPress, icon, style }) 
         style,
       ]}
     >
-      {selected ? (
+      {selected && showSelectedIcon ? (
         <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" style={styles.icon} />
       ) : icon ? (
         <Ionicons name={icon} size={15} color={theme.colors.textMuted} style={styles.icon} />
       ) : null}
-      <Text style={[styles.label, { color: selected ? '#FFFFFF' : theme.colors.text }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: selected ? '#FFFFFF' : theme.colors.text, flexShrink: 1, textAlign: 'center' }, labelStyle]} numberOfLines={labelLines}>
         {label}
       </Text>
     </Pressable>

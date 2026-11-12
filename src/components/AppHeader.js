@@ -35,6 +35,11 @@ export function goToDashboard(navigation) {
   goToMain(navigation, 'Home');
 }
 
+export function goBackToPrevious(navigation) {
+  if (navigation.canGoBack()) navigation.goBack();
+  else goToMain(navigation, 'Profile');
+}
+
 export function goToMain(navigation, screen, params) {
   let current = navigation;
   while (current) {

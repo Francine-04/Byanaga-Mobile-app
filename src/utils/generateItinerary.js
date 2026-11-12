@@ -1,10 +1,11 @@
-import { matchByPreferences, weatherAdvice } from './preferenceMatching';
+import { matchByPreferences, recommendationDetails, weatherAdvice } from './preferenceMatching';
 import { findKnownPlace, normalizePlaceKey } from '../data/nagaPlaces';
 import { isCoordinateInsideNagaCity } from './nagaBoundary';
 import { optimizeRoute } from './routeOptimization';
 import { toEventDate } from './eventDate';
 import { addTravelDays, manilaDate, parseTravelDate, parseVisitMinutes, visitTimeFields } from './travelSchedule';
 import { normalizePreferences } from './travelerPreferences';
+import { tripDayCount } from './tripDuration';
 
 export function generateItinerary({ destinations = [], restaurants = [], events = [], preferences = {}, weather, travelDate = '', now = new Date() }) {
   const today = manilaDate(now);
@@ -28,7 +29,7 @@ export function generateItinerary({ destinations = [], restaurants = [], events 
   });
   const used = new Set();
   const days = [];
-  const dayCount = selected.duration === 'Weekend' ? 2 : 1;
+  const dayCount = tripDayCount(selected.duration);
   const perDay = selected.duration === 'Half Day' ? 2 : 4;
   for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
     const dayDate = addTravelDays(date, dayIndex);
@@ -43,8 +44,13 @@ export function generateItinerary({ destinations = [], restaurants = [], events 
       if (minute >= window.end || minute >= (selected.duration === 'Half Day' ? 12 * 60 : 20 * 60)) continue;
       const placeId = String(place.dashboardId || place.placeId || place.id);
       const time = visitTimeFields(minute);
+      const explanation = recommendationDetails(selected, place).description;
+      const weatherNote = dayDate !== today
+        ? 'Check the forecast closer to this travel date; current weather was not used.'
+        : weatherAdvice(conditions, now).message;
       places.push({ ...place, entryId: `suggested-${dayIndex}-${places.length}-${placeId}`, placeId, destinationId: placeId,
         title: place.name, placeName: place.name, address: place.address || 'Naga City, Camarines Sur',
+        recommendationReason: `${explanation} ${weatherNote}`,
         ...time, time: time.displayTime, subtitle: 'Suggested visit; confirm opening hours' });
       used.add(normalizePlaceKey(place.name));
       nextMinute = minute + 120;
@@ -53,12 +59,20 @@ export function generateItinerary({ destinations = [], restaurants = [], events 
   }
   const applicableWeather = date === today ? weather : null;
   const weatherAge = Number(now) - Date.parse(applicableWeather?.updatedAt);
+  const stops = days.flatMap((day) => day.places);
+  const matchedInterests = [...new Set(stops.flatMap((place) => recommendationDetails(selected, place).tags))];
+  const categories = [...new Set(stops.map((place) => place.category).filter(Boolean))];
+  const weatherSummary = date !== today ? 'Check the forecast closer to your travel date. Today\'s weather is not a forecast for this trip.' : weatherAdvice(applicableWeather, now).message;
+  const summary = stops.length
+    ? `Why visit these places? This itinerary brings together ${categories.join(', ').toLowerCase()} stops in Naga City${matchedInterests.length ? ` that include matches for your interests in ${matchedInterests.join(', ').toLowerCase()}` : ' for you to explore'}. The route is arranged to reduce travel between stops and fit your selected trip duration. ${weatherSummary} Confirm opening hours before visiting.`
+    : weatherSummary;
   return {
     days: days.some((day) => day.places.length) ? days : [], travelDate: date,
-    advice: date !== today ? 'Check the forecast closer to your travel date. Today\'s weather is not a forecast for this trip.' : weatherAdvice(applicableWeather, now).message,
+    advice: `${summary}${stops.length && days.some((day) => !day.places.length) ? ' Some days have no suggested stops because there are not enough available places. You can add stops manually.' : ''}`,
     recommendation: {
       method: 'preference-matching-nearest-stop-v1', generatedAt: new Date(now).toISOString(),
       preferences: selected, travelDate: date,
+      summary,
       weatherUsed: applicableWeather?.source === 'open-meteo' && weatherAge >= 0 && weatherAge < 3600000,
     },
   };

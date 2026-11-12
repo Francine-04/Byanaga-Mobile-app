@@ -2,6 +2,150 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "crowd": {
+      "consents": {
+        "$uid": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $uid && newData.exists()",
+          ".validate": "newData.hasChildren(['enabled', 'version', 'updatedAt'])",
+          "enabled": {
+            ".validate": "newData.isBoolean()"
+          },
+          "version": {
+            ".validate": "newData.val() === 1"
+          },
+          "updatedAt": {
+            ".validate": "newData.isNumber() && newData.val() === now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "activityConfig": {
+        ".read": true
+      },
+      "autoState": {
+        "$uid": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $uid",
+          "$placeId": {
+            ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $uid && root.child('crowd/consents').child(auth.uid).child('enabled').val() === true && root.child('crowd/consents').child(auth.uid).child('version').val() === 1 && root.child('crowd/places').child($placeId).child('enabled').val() === true && root.child('crowd/places').child($placeId).child('automaticEnabled').val() === true && newData.exists()",
+            ".validate": "newData.hasChildren(['phase', 'sequence', 'eventDay', 'updatedAt', 'observedAt']) && ((!data.exists() || now - data.child('updatedAt').val() >= 10000)) && ((newData.child('phase').val() === 'inside' && (!data.exists() || data.child('phase').val() === 'outside') && newData.child('sequence').val() === (data.exists() ? data.child('sequence').val() + 1 : 1) && newData.child('eventDay').val() === ((now + 28800000 - (now + 28800000) % 86400000) / 86400000) && newData.parent().parent().parent().child('autoVisits').child($uid).child($placeId).child(newData.child('sequence').val() + '').child('timestamp').val() === now && newData.parent().parent().parent().child('autoDays').child(((now + 28800000 - (now + 28800000) % 86400000) / 86400000) + '').child($placeId).val() === (root.child('crowd/autoDays').child(((now + 28800000 - (now + 28800000) % 86400000) / 86400000) + '').child($placeId).exists() ? root.child('crowd/autoDays').child(((now + 28800000 - (now + 28800000) % 86400000) / 86400000) + '').child($placeId).val() + 1 : 1)) || (newData.child('phase').val() === 'outside' && data.child('phase').val() === 'inside' && newData.child('sequence').val() === data.child('sequence').val() && newData.child('eventDay').val() === data.child('eventDay').val()))",
+            "phase": {
+              ".validate": "newData.val() === 'inside' || newData.val() === 'outside'"
+            },
+            "sequence": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() % 1 === 0"
+            },
+            "eventDay": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0"
+            },
+            "updatedAt": {
+              ".validate": "newData.isNumber() && newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            },
+            "observedAt": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 2000 && now - newData.val() <= 30000"
+            }
+          }
+        }
+      },
+      "autoVisits": {
+        "$uid": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $uid",
+          "$placeId": {
+            "$sequence": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $uid && root.child('crowd/consents').child(auth.uid).child('enabled').val() === true && root.child('crowd/consents').child(auth.uid).child('version').val() === 1 && root.child('crowd/places').child($placeId).child('enabled').val() === true && root.child('crowd/places').child($placeId).child('automaticEnabled').val() === true && !data.exists() && newData.exists()",
+              ".validate": "newData.hasChildren(['visitorId', 'destinationId', 'visitDay', 'timestamp']) && $sequence === (root.child('crowd/autoState').child(auth.uid).child($placeId).exists() ? root.child('crowd/autoState').child(auth.uid).child($placeId).child('sequence').val() + 1 : 1) + '' && newData.parent().parent().parent().parent().child('autoState').child($uid).child($placeId).child('sequence').val() + '' === $sequence && newData.parent().parent().parent().parent().child('autoState').child($uid).child($placeId).child('phase').val() === 'inside' && newData.parent().parent().parent().parent().child('autoState').child($uid).child($placeId).child('updatedAt').val() === now && newData.parent().parent().parent().parent().child('autoState').child($uid).child($placeId).child('eventDay').val() === ((now + 28800000 - (now + 28800000) % 86400000) / 86400000)",
+              "visitorId": {
+                ".validate": "newData.val() === $uid"
+              },
+              "destinationId": {
+                ".validate": "newData.val() === $placeId"
+              },
+              "visitDay": {
+                ".validate": "newData.isNumber() && newData.val() === ((now + 28800000 - (now + 28800000) % 86400000) / 86400000)"
+              },
+              "timestamp": {
+                ".validate": "newData.isNumber() && newData.val() === now"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        }
+      },
+      "autoDays": {
+        ".read": true,
+        "$day": {
+          "$placeId": {
+            ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('crowd/consents').child(auth.uid).child('enabled').val() === true && root.child('crowd/consents').child(auth.uid).child('version').val() === 1 && root.child('crowd/places').child($placeId).child('enabled').val() === true && root.child('crowd/places').child($placeId).child('automaticEnabled').val() === true && newData.exists()",
+            ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() + 1 : 1) && $day === ((now + 28800000 - (now + 28800000) % 86400000) / 86400000) + '' && newData.parent().parent().parent().child('autoState').child(auth.uid).child($placeId).child('phase').val() === 'inside' && newData.parent().parent().parent().child('autoState').child(auth.uid).child($placeId).child('sequence').val() === (root.child('crowd/autoState').child(auth.uid).child($placeId).exists() ? root.child('crowd/autoState').child(auth.uid).child($placeId).child('sequence').val() + 1 : 1) && newData.parent().parent().parent().child('autoState').child(auth.uid).child($placeId).child('updatedAt').val() === now && newData.parent().parent().parent().child('autoState').child(auth.uid).child($placeId).child('eventDay').val() === ((now + 28800000 - (now + 28800000) % 86400000) / 86400000) && newData.parent().parent().parent().child('autoVisits').child(auth.uid).child($placeId).child((root.child('crowd/autoState').child(auth.uid).child($placeId).exists() ? root.child('crowd/autoState').child(auth.uid).child($placeId).child('sequence').val() + 1 : 1) + '').child('timestamp').val() === now"
+          }
+        }
+      },
+      "history": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous'",
+          "$day": {
+            "$placeId": {
+              ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous' && !data.exists() && newData.exists()",
+              ".validate": "$day === ((now + 28800000 - (now + 28800000) % 86400000) / 86400000) + '' && root.child('crowd/places').child($placeId).child('enabled').val() === true && newData.hasChildren(['visitedAt']) && newData.parent().parent().parent().parent().child('checkins').child($uid).child($placeId).child('updatedAt').val() === now && newData.parent().parent().parent().parent().child('public/days').child($day).child($placeId).val() === (root.child('crowd/public/days').child($day).child($placeId).exists() ? root.child('crowd/public/days').child($day).child($placeId).val() + 1 : 1)",
+              "visitedAt": {
+                ".validate": "newData.isNumber() && newData.val() === now"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        }
+      },
+      "public": {
+        "days": {
+          ".read": true,
+          "$day": {
+            "$placeId": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && newData.exists() && !root.child('crowd/history').child(auth.uid).child($day).child($placeId).exists()",
+              ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() + 1 : 1) && $day === ((now + 28800000 - (now + 28800000) % 86400000) / 86400000) + '' && root.child('crowd/places').child($placeId).child('enabled').val() === true && newData.parent().parent().parent().parent().child('history').child(auth.uid).child($day).child($placeId).child('visitedAt').val() === now"
+            }
+          }
+        }
+      },
+      "places": {
+        ".read": true,
+        "$placeId": {
+          ".validate": "newData.hasChildren(['enabled'])",
+          "enabled": {
+            ".validate": "newData.isBoolean()"
+          },
+          "capacity": {
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          }
+        }
+      },
+      "checkins": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous'",
+          "$placeId": {
+            ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous'",
+            ".validate": "newData.hasChildren(['placeId', 'updatedAt']) && newData.parent().parent().parent().child('history').child($uid).child(((now + 28800000 - (now + 28800000) % 86400000) / 86400000) + '').child($placeId).exists()",
+            "placeId": {
+              ".validate": "newData.isString() && newData.val() === $placeId && root.child('crowd/places').child(newData.val()).child('enabled').val() === true"
+            },
+            "updatedAt": {
+              ".validate": "newData.isNumber() && newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
@@ -12,7 +156,9 @@
       }
     },
     "itineraries": {
-      ".indexOn": ["userId"],
+      ".indexOn": [
+        "userId"
+      ],
       ".read": "auth != null && query.orderByChild === 'userId' && query.equalTo === auth.uid",
       "$itineraryId": {
         ".read": "auth != null && data.child('userId').val() === auth.uid",
