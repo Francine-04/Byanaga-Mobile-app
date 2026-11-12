@@ -3,13 +3,14 @@ import { Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import useBookmarkAction from '../../hooks/useBookmarkAction';
-import { goToDashboard, goToMain } from '../../components/AppHeader';
+import { goToMain } from '../../components/AppHeader';
 import AppButton from '../../components/AppButton';
 import CategoryChip from '../../components/CategoryChip';
 import PlaceholderImage from '../../components/PlaceholderImage';
 import Rating from '../../components/Rating';
 import Screen from '../../components/Screen';
 import { withSuppliedPlaceImages } from '../../utils/suppliedPlaceImages';
+import { visiblePlaceDetail } from '../../utils/placeDetails';
 
 const tabs = ['Overview', 'Photos', 'Reviews', 'Nearby'];
 
@@ -45,8 +46,11 @@ export default function DestinationDetailsScreen({ navigation, route }) {
         <View style={styles.heroActions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Back to dashboard"
-            onPress={() => goToDashboard(navigation)}
+            accessibilityLabel="Back to previous screen"
+            onPress={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+              else goToMain(navigation, 'Explore');
+            }}
             style={[styles.heroButton, { backgroundColor: theme.colors.surface }]}
           >
             <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
@@ -76,12 +80,9 @@ export default function DestinationDetailsScreen({ navigation, route }) {
         <Text style={[styles.title, { color: theme.colors.text }]}>{destination.name}</Text>
         <Text style={[styles.category, { color: theme.colors.textMuted }]}>{destination.category || destination.cuisine}</Text>
         <View style={styles.ratingRow}>
-          <Rating value={destination.rating} label={destination.source === 'geoapify' ? undefined : 'sample rating'} />
+          <Rating value={destination.rating} />
           <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.distance}</Text>
           <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.estimatedVisitTime}</Text>
-          <View style={[styles.openBadge, { backgroundColor: theme.colors.primarySoft }]}>
-            <Text style={[styles.openText, { color: theme.colors.primary }]}>{destination.source === 'geoapify' ? 'Mapped place' : 'Sample details'}</Text>
-          </View>
         </View>
       </View>
 
@@ -99,8 +100,10 @@ export default function DestinationDetailsScreen({ navigation, route }) {
 
       <View style={styles.infoCard}>
         {destination.source === 'geoapify' ? <Text accessibilityRole="link" onPress={() => Linking.openURL('https://www.geoapify.com/')} style={{ color: theme.colors.textMuted, fontSize: 11, marginBottom: 10 }}>Powered by Geoapify · © OpenStreetMap contributors</Text> : null}
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>About</Text>
-        <Text style={[styles.description, { color: theme.colors.textMuted }]}>{destination.description || 'A sample local dining stop for your Naga City itinerary.'}</Text>
+        {visiblePlaceDetail(destination.description) ? <>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>About</Text>
+          <Text style={[styles.description, { color: theme.colors.textMuted }]}>{visiblePlaceDetail(destination.description)}</Text>
+        </> : null}
         <Info icon="time-outline" label="Opening Hours" value={destination.openingHours} />
         <Info icon="ticket-outline" label="Entrance Fee" value={destination.entranceFee} />
         <Info icon="sunny-outline" label="Best Time to Visit" value={destination.bestTime} />
@@ -131,12 +134,14 @@ function Action({ icon, label, onPress, disabled }) {
 
 function Info({ icon, label, value }) {
   const { theme } = useApp();
+  const detail = visiblePlaceDetail(value);
+  if (!detail) return null;
   return (
     <View style={styles.infoRow}>
       <Ionicons name={icon} size={17} color={theme.colors.textMuted} style={styles.infoIcon} />
       <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>{label}</Text>
       <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-        {value || 'Not provided'}
+        {detail}
       </Text>
     </View>
   );

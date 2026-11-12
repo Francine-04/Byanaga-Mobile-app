@@ -1,5 +1,6 @@
 import { nagaPlaces, findKnownPlace, normalizePlaceKey } from '../data/nagaPlaces';
 import { getPlaceImage } from '../data/placeImages';
+import { isVisiblePlace } from './suppliedPlaceImages';
 import { getBackendImage } from './backendImages';
 import { isCoordinateInsideNagaCity, isValidCoordinate } from './nagaBoundary';
 
@@ -17,6 +18,7 @@ export function searchNagaCatalogPlaces({ query = '', category = 'All', collecti
   ].filter(Boolean);
 
   return dedupePlaces(candidates)
+    .filter(isVisiblePlace)
     .filter((place) => category === 'All' || place.category === normalizeCategory(category))
     .filter((place) => matchesQuery(place, normalizedQuery))
     .sort((first, second) => scorePlace(second, normalizedQuery) - scorePlace(first, normalizedQuery) || first.name.localeCompare(second.name))

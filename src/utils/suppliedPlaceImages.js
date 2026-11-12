@@ -1,4 +1,5 @@
 import { suppliedPlacePhotos } from '../data/suppliedPlacePhotos';
+import { placeImages } from '../data/placeImages';
 
 export function normalizePhotoName(value = '') {
   return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -21,8 +22,24 @@ export function getSuppliedPlacePhotos(place = {}) {
 }
 
 // Presentation-only: never delete source records or saved visits.
+const hiddenPlaceNames = new Set([
+  'Camarines Sur National High School', 'Cararayan', 'CBD II Bus Terminal',
+  'Concepcion Grande', 'Dayangdang',
+].map(normalizePhotoName));
+
+export function isVisiblePlace(place) {
+  return Boolean(place) && !hiddenPlaceNames.has(normalizePhotoName(place.name));
+}
+
 export function placesWithImages(places = []) {
-  return places.map(withSuppliedPlaceImages).filter((place) => Boolean(place?.image));
+  return places.filter(isVisiblePlace).map(withSuppliedPlaceImages)
+    .filter((place) => Boolean(place?.image) && !isFestivalPlaceholder(place.image));
+}
+
+function isFestivalPlaceholder(image) {
+  if (image === placeImages.festival) return true;
+  const uri = typeof image === 'string' ? image : image?.uri;
+  return typeof uri === 'string' && /dashboard-festival\.|category-festival|weekend-promo/i.test(uri);
 }
 
 // Applied after catalog merging so both cached API and Firebase records receive
@@ -37,7 +54,7 @@ export function withSuppliedPlaceImages(place) {
   const suppliedIds = new Set(photos.map((photo) => photo.id));
   return {
     ...place,
-    image: matches.every((photo) => photo.fallbackOnly) && place.image
+    image: matches.every((photo) => photo.fallbackOnly) && place.image && !isFestivalPlaceholder(place.image)
       ? place.image : photos[0].image,
     photos: [...photos, ...(place.photos || []).filter((photo) => !suppliedIds.has(photo.id))],
     gallery: [

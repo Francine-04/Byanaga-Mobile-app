@@ -5,9 +5,32 @@ const path = require('node:path');
 const { createLoader } = require('./helpers/load.cjs');
 const manifest = fs.readFileSync(path.join(__dirname, '../src/data/suppliedPlacePhotos.js'), 'utf8');
 const assets = [...manifest.matchAll(/require\('([^']+)'\)/g)].map((match) => match[1]);
-const load = createLoader(Object.fromEntries(assets.map((asset) => [asset, { uri: asset }])));
+const legacyAssets = [...fs.readFileSync(path.join(__dirname, '../src/data/placeImages.js'), 'utf8').matchAll(/require\('([^']+)'\)/g)].map((match) => match[1]);
+const load = createLoader(Object.fromEntries([...assets, ...legacyAssets].map((asset) => [asset, { uri: asset }])));
 const { suppliedPlacePhotos } = load('src/data/suppliedPlacePhotos.js');
 const { withSuppliedPlaceImages, getSuppliedPlacePhotos, suppliedFoodPhotos } = load('src/utils/suppliedPlaceImages.js');
+
+test('festival placeholder listings are hidden but actual supplied photos are retained', () => {
+  const { placesWithImages } = load('src/utils/suppliedPlaceImages.js');
+  const { placeImages } = load('src/data/placeImages.js');
+  const result = placesWithImages([
+    { name: 'Unmatched', image: placeImages.festival },
+    { name: 'Another placeholder', image: { uri: 'https://example.com/dashboard-festival.jpg' } },
+    { name: 'Red Platter', image: placeImages.festival },
+    { name: 'Actual venue', image: 'https://example.com/venue.jpg' },
+  ]);
+  assert.deepEqual(Array.from(result, (place) => place.name), ['Red Platter', 'Actual venue']);
+  assert.notEqual(result[0].image, placeImages.festival);
+});
+
+test('requested non-tourism listings stay hidden even with fallback images', () => {
+  const { placesWithImages, isVisiblePlace } = load('src/utils/suppliedPlaceImages.js');
+  const names = ['Camarines Sur National High School', 'Cararayan', 'CBD II Bus Terminal', 'Concepcion Grande', 'Dayangdang'];
+  const records = names.map((name) => ({ name, image: 'fallback.jpg' }));
+  assert.equal(placesWithImages(records).length, 0);
+  assert.equal(records.length, 5);
+  assert.equal(isVisiblePlace({ name: 'The Church of Jesus Christ of Latter-day Saints Cararayan Group (Apetrior Residence)' }), true);
+});
 
 test('confirmed update photos cover all fifteen venues and image-less listings are hidden without mutation', () => {
   const { placesWithImages } = load('src/utils/suppliedPlaceImages.js');

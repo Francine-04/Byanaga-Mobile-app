@@ -2,11 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { Alert, AppState, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo, { useNetInfo } from '@react-native-community/netinfo';
-import { accommodations as fallbackAccommodations } from '../data/accommodations';
-import { destinations as fallbackDestinations } from '../data/destinations';
 import useNotificationFeed from '../hooks/useNotificationFeed';
 import useAutomaticVisits from '../hooks/useAutomaticVisits';
-import { restaurants as fallbackRestaurants } from '../data/restaurants';
 import {
   businessProfileToAccommodation,
   businessProfileToDestination,
@@ -364,7 +361,7 @@ export function AppProvider({ children }) {
 
   const destinations = useMemo(() => {
     const merged = dedupeByName([...liveDestinations, ...businessDestinations, ...geoPlaces]);
-    return placesWithImages(merged.length ? merged : fallbackDestinations);
+    return placesWithImages(merged);
   }, [businessDestinations, liveDestinations, geoPlaces]);
 
   const businessRestaurants = useMemo(() => (
@@ -383,7 +380,7 @@ export function AppProvider({ children }) {
 
   const restaurants = useMemo(() => {
     const merged = dedupeByName([...businessRestaurants, ...geoPlaces.filter((place) => place.category === 'Food')]);
-    return placesWithImages(merged.length ? merged : fallbackRestaurants);
+    return placesWithImages(merged);
   }, [businessRestaurants, geoPlaces]);
 
   const businessStays = useMemo(() => (
@@ -394,7 +391,7 @@ export function AppProvider({ children }) {
 
   const accommodations = useMemo(() => {
     const merged = dedupeByName([...liveAccommodations, ...businessStays, ...geoPlaces.filter((place) => place.category === 'Accommodation')]);
-    return placesWithImages(merged.length ? merged : fallbackAccommodations);
+    return placesWithImages(merged);
   }, [businessStays, liveAccommodations, geoPlaces]);
 
   const { notifications, vouchers: liveVouchers, markAllNotificationsRead, markNotificationsRead, notificationError } = useNotificationFeed({
