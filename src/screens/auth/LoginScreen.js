@@ -271,8 +271,8 @@ export default function LoginScreen({ navigation, route }) {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-      <Screen style={{ backgroundColor: loginColors.background }} contentStyle={styles.content}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex} keyboardVerticalOffset={0}>
+      <Screen style={{ backgroundColor: loginColors.background }} contentStyle={styles.content} scroll={true}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Welcome Back!</Text>
         <Text style={[styles.subtitle, { color: theme.colors.text }]}>Login to continue{'\n'}your journey.</Text>
         <View style={styles.form}>
