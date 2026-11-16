@@ -31,7 +31,14 @@ export default function AccommodationCard({ accommodation, compact = false, show
         </Text>
         {!compact ? <Text style={[styles.cardPrice, { color: theme.colors.primary }]}>{accommodation.price}</Text> : null}
         <View style={styles.footer}>
-          <Rating value={accommodation.rating} />
+          {accommodation.averageRating != null && accommodation.ratingCount > 0 ? (
+            <Rating 
+              value={accommodation.averageRating} 
+              label={`(${accommodation.ratingCount} ${accommodation.ratingCount === 1 ? 'user' : 'users'})`} 
+            />
+          ) : (
+            <Text style={[styles.noRating, { color: theme.colors.textMuted }]}>No ratings yet</Text>
+          )}
           {compact ? <Text style={[styles.distance, { color: theme.colors.textMuted }]}>{accommodation.distance}</Text> : null}
         </View>
         {showActions ? (
@@ -113,6 +120,10 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  noRating: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   trailing: {
     minWidth: 74,
