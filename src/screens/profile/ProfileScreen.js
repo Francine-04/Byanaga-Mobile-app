@@ -24,6 +24,7 @@ export default function ProfileScreen({ navigation }) {
         <SettingsRow icon="person-outline" label="Edit Profile" onPress={() => navigation.navigate('EditProfile')} />
         <SettingsRow icon="options-outline" label="Travel Preferences" onPress={() => navigation.navigate('TravelPreferences')} />
         <SettingsRow icon="bookmark-outline" label="Saved Places" onPress={() => navigation.navigate('SavedPlaces')} />
+        <SettingsRow icon="ticket-outline" label="My Vouchers" onPress={() => navigation.navigate('MyVouchers')} />
         <SettingsRow icon="calendar-outline" label="Saved Trips" onPress={() => navigation.navigate('Trips')} />
         <SettingsRow icon="settings-outline" label="Settings" onPress={() => navigation.navigate('Settings')} />
         <SettingsRow icon="call-outline" label="Emergency Contacts" onPress={() => navigation.navigate('EmergencyContacts')} last />
