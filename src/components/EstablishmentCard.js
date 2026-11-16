@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import useBookmarkAction from '../hooks/useBookmarkAction';
 import AppCard from './AppCard';
 import PlaceholderImage from './PlaceholderImage';
+import Rating from './Rating';
 
 export default function EstablishmentCard({ establishment, onPress, horizontal = false, showBookmark = true, style }) {
   const { theme, bookmarks } = useApp();
@@ -54,6 +55,15 @@ export default function EstablishmentCard({ establishment, onPress, horizontal =
           <Ionicons name="location-outline" size={14} color={theme.colors.textMuted} />
           <Text style={[styles.meta, { color: theme.colors.textMuted }]} numberOfLines={1}>{establishment.address || 'Naga City'}</Text>
         </View>
+        {/* Rating display */}
+        {establishment.averageRating != null && establishment.ratingCount > 0 && (
+          <View style={styles.ratingRow}>
+            <Rating 
+              value={establishment.averageRating} 
+              label={`(${establishment.ratingCount} ${establishment.ratingCount === 1 ? 'user' : 'users'})`} 
+            />
+          </View>
+        )}
         {(updateCount || offerCount) ? (
           <View style={styles.activityRow}>
             {updateCount ? <ActivityPill icon="megaphone-outline" label={`${updateCount} update${updateCount === 1 ? '' : 's'}`} /> : null}
@@ -168,6 +178,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '700',
+  },
+  ratingRow: {
+    marginTop: 6,
   },
   activityRow: {
     marginTop: 9,
