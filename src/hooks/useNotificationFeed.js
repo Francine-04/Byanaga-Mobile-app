@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { buildNotificationFeed } from '../utils/notificationFeed';
 import { notificationKey, saveNotificationReads, subscribeToNotificationReads, subscribeToPersonalNotices, subscribeToVouchers } from '../services/notificationService';
 
-export default function useNotificationFeed({ userId, events, trips, zones, establishmentPosts = [] }) {
+export default function useNotificationFeed({ userId, events, trips, zones, establishmentPosts = [], approvedEstablishmentIds }) {
   const [vouchers, setVouchers] = useState([]);
   const [direct, setDirect] = useState([]);
   const [reads, setReads] = useState({});
@@ -27,7 +27,15 @@ export default function useNotificationFeed({ userId, events, trips, zones, esta
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') setNow(Date.now()); });
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
-  useEffect(() => subscribeToVouchers((data) => { setVouchers(data); error('offers', null); }, (cause) => { setVouchers([]); error('offers', cause); }), [error, userId]);
+  // Subscribe to vouchers and filter by approved establishments
+  useEffect(() => subscribeToVouchers((data) => {
+    // Filter vouchers: only show those without establishmentId OR with approved establishmentId
+    const filteredVouchers = data.filter((voucher) => 
+      !voucher.establishmentId || (approvedEstablishmentIds && approvedEstablishmentIds.has(voucher.establishmentId))
+    );
+    setVouchers(filteredVouchers);
+    error('offers', null);
+  }, (cause) => { setVouchers([]); error('offers', cause); }), [error, userId, approvedEstablishmentIds]);
   useEffect(() => {
     let active = true;
     setDirect([]);
