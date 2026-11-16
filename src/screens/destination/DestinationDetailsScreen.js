@@ -12,7 +12,7 @@ import Screen from '../../components/Screen';
 import { withSuppliedPlaceImages } from '../../utils/suppliedPlaceImages';
 import { visiblePlaceDetail } from '../../utils/placeDetails';
 
-const tabs = ['Overview', 'Photos', 'Reviews', 'Nearby'];
+const tabs = ['Overview', 'Photos', 'Nearby']; // Removed Reviews for destinations
 
 export default function DestinationDetailsScreen({ navigation, route }) {
   const { theme, bookmarks, destinations, weather } = useApp();
@@ -25,8 +25,12 @@ export default function DestinationDetailsScreen({ navigation, route }) {
     catch { setMessage('Sharing is not available on this device.'); }
   };
   const hasPhone = typeof destination.contact === 'string' && /^\+?[\d\s()-]{7,}$/.test(destination.contact);
+  
+  // Check if this is a system destination (not from business_profiles)
+  const isSystemDestination = destination.sourceCollection === 'destinations';
+  
   const openSection = (tab) => {
-    const screen = { Photos: 'DestinationPhotos', Reviews: 'Reviews', Nearby: 'NearbyPlaces' }[tab];
+    const screen = { Photos: 'DestinationPhotos', Nearby: 'NearbyPlaces' }[tab];
     if (screen) navigation.navigate(screen, { destination });
   };
 
@@ -79,11 +83,20 @@ export default function DestinationDetailsScreen({ navigation, route }) {
       <View style={styles.titleBlock}>
         <Text style={[styles.title, { color: theme.colors.text }]}>{destination.name}</Text>
         <Text style={[styles.category, { color: theme.colors.textMuted }]}>{destination.category || destination.cuisine}</Text>
-        <View style={styles.ratingRow}>
-          <Rating value={destination.rating} />
-          <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.distance}</Text>
-          <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.estimatedVisitTime}</Text>
-        </View>
+        {/* Hide ratings for system destinations */}
+        {!isSystemDestination && (
+          <View style={styles.ratingRow}>
+            <Rating value={destination.rating} />
+            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.distance}</Text>
+            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.estimatedVisitTime}</Text>
+          </View>
+        )}
+        {isSystemDestination && (
+          <View style={styles.ratingRow}>
+            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.distance}</Text>
+            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{destination.estimatedVisitTime}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.actionRow}>
