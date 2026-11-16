@@ -23,6 +23,7 @@ import SettingsScreen from '../screens/profile/SettingsScreen';
 import TravelPreferencesScreen from '../screens/profile/TravelPreferencesScreen';
 import PrivacySettingsScreen from '../screens/profile/PrivacySettingsScreen';
 import SavedPlacesScreen from '../screens/profile/SavedPlacesScreen';
+import MyVouchersScreen from '../screens/profile/MyVouchersScreen';
 import DestinationPhotosScreen from '../screens/destination/DestinationPhotosScreen';
 import ReviewsScreen from '../screens/destination/ReviewsScreen';
 import NearbyPlacesScreen from '../screens/destination/NearbyPlacesScreen';
@@ -103,6 +104,7 @@ export default function RootNavigator() {
         <Stack.Screen name="TravelPreferences" component={TravelPreferencesScreen} />
         <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
         <Stack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
+        <Stack.Screen name="MyVouchers" component={MyVouchersScreen} />
         <Stack.Screen name="DestinationPhotos" component={DestinationPhotosScreen} />
         <Stack.Screen name="Reviews" component={ReviewsScreen} />
         <Stack.Screen name="NearbyPlaces" component={NearbyPlacesScreen} />
