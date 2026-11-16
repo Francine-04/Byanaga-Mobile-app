@@ -191,21 +191,6 @@ export default function HomeScreen({ navigation }) {
           ))}
         </ScrollView>
 
-        {vouchers.length ? (
-          <>
-            <SectionHeader title="Latest Offers" onPress={() => navigation.navigate('Offers')} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {vouchers.slice(0, 4).map((voucher) => (
-                <VoucherCard
-                  key={voucher.id}
-                  voucher={voucher}
-                  horizontal
-                  onPress={() => navigation.navigate('Offers', { voucherId: voucher.id })}
-                />
-              ))}
-            </ScrollView>
-          </>
-        ) : null}
 
         <SectionHeader title="Local Establishments" onPress={() => navigation.navigate('Establishments')} />
         {establishments.length ? (
@@ -254,6 +239,34 @@ export default function HomeScreen({ navigation }) {
             ))}
           </ScrollView>
         ) : <EventWeekState source={eventsSource} hasError={Boolean(eventsError)} />}
+
+        {/* Vouchers Section - Placed after Events */}
+        {vouchers.length ? (
+          <>
+            <SectionHeader title="Special Offers & Vouchers" onPress={() => navigation.navigate('Offers')} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {vouchers.slice(0, 5).map((voucher) => (
+                <VoucherCard
+                  key={voucher.id}
+                  voucher={voucher}
+                  horizontal
+                  onPress={() => navigation.navigate('Offers', { voucherId: voucher.id })}
+                />
+              ))}
+            </ScrollView>
+          </>
+        ) : (
+          <>
+            <SectionHeader title="Special Offers & Vouchers" onPress={() => navigation.navigate('Offers')} />
+            <AppCard style={styles.emptyEstablishmentCard}>
+              <Ionicons name="pricetag-outline" size={24} color={theme.colors.primary} />
+              <View style={styles.emptyEstablishmentCopy}>
+                <Text style={[styles.emptyEventTitle, { color: theme.colors.text }]}>No vouchers available</Text>
+                <Text style={[styles.emptyEventText, { color: theme.colors.textMuted }]}>Check back later for special offers from local businesses.</Text>
+              </View>
+            </AppCard>
+          </>
+        )}
 
         <SectionHeader title="Restaurants" onPress={() => navigation.navigate('Restaurants')} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
