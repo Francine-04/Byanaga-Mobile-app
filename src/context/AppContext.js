@@ -19,6 +19,7 @@ import {
   subscribeToEstablishmentMenu,
   subscribeToEstablishmentPosts,
 } from '../services/establishmentContentService';
+import { subscribeToUserVoucherClaims } from '../services/voucherClaimService';
 import { firebaseProjectId } from '../services/firebaseApp';
 import { AUTH_REQUIRED_ERROR_CODE, subscribeToTravelerRecord, subscribeToAuthState, travelerRecordToAppState, toggleTravelerBookmark } from '../services/authService';
 import {
@@ -71,6 +72,7 @@ export function AppProvider({ children }) {
   const [establishmentPosts, setEstablishmentPosts] = useState([]);
   const [establishmentGallery, setEstablishmentGallery] = useState([]);
   const [establishmentMenuItems, setEstablishmentMenuItems] = useState([]);
+  const [claimedVouchers, setClaimedVouchers] = useState([]);
   const [visitorRecords, setVisitorRecords] = useState([]);
   const [backendErrors, setBackendErrors] = useState({});
   const [itineraryError, setItineraryError] = useState(null);
@@ -305,6 +307,29 @@ export function AppProvider({ children }) {
     return unsubscribe;
   }, [firebaseUser?.uid, firebaseUser?.isAnonymous, isGuestMode, updateBackendError]);
 
+  // Subscribe to user's claimed vouchers
+  useEffect(() => {
+    setClaimedVouchers([]);
+
+    if (!firebaseUser?.uid || firebaseUser.isAnonymous || isGuestMode) {
+      return undefined;
+    }
+
+    const unsubscribe = subscribeToUserVoucherClaims(
+      firebaseUser.uid,
+      (claims) => {
+        setClaimedVouchers(claims);
+        updateBackendError('claimedVouchers', null);
+      },
+      (error) => {
+        const message = error?.message || 'Unable to load claimed vouchers.';
+        updateBackendError('claimedVouchers', message);
+      }
+    );
+
+    return unsubscribe;
+  }, [firebaseUser?.uid, firebaseUser?.isAnonymous, isGuestMode, updateBackendError]);
+
   const refreshWeather = useCallback(async () => {
     try {
       const nextWeather = await fetchNagaWeather();
@@ -400,6 +425,7 @@ export function AppProvider({ children }) {
     trips: !isGuestMode && firebaseUser ? savedTrips.filter((trip) => trip.userId === firebaseUser.uid) : [],
     zones: [],
     establishmentPosts: visibleEstablishmentPosts,
+    approvedEstablishmentIds, // Pass approved establishment IDs to filter vouchers
   });
   const vouchers = useMemo(
     () => liveVouchers.filter((voucher) => !voucher.establishmentId || approvedEstablishmentIds.has(voucher.establishmentId)),
@@ -539,6 +565,7 @@ export function AppProvider({ children }) {
       establishmentGallery: visibleEstablishmentGallery,
       establishmentMenuItems: visibleEstablishmentMenuItems,
       vouchers,
+      claimedVouchers,
       visitorRecords,
       tourismEvents,
       eventsSource,
@@ -588,6 +615,7 @@ export function AppProvider({ children }) {
       visibleEstablishmentGallery,
       visibleEstablishmentMenuItems,
       vouchers,
+      claimedVouchers,
       visitorRecords,
       tourismEvents,
       eventsSource,
