@@ -35,17 +35,33 @@ export function subscribeToDashboardAccommodations(onAccommodations, onError) {
 }
 
 export function subscribeToDashboardBusinessProfiles(onProfiles, onError) {
+  console.log('🔍 [Mobile] Subscribing to business_profiles with status=approved');
+  
   return onSnapshot(
     query(collection(db, 'business_profiles'), where('status', '==', 'approved')),
     (snapshot) => {
+      console.log(`📦 [Mobile] Firestore returned ${snapshot.docs.length} document(s)`);
+      
       const profiles = snapshot.docs
-        .map((doc) => normalizeBusinessProfile(doc.id, doc.data()))
-        .filter((profile) => profile.status === 'approved')
+        .map((doc) => {
+          const data = doc.data();
+          console.log(`   📄 Doc ID: ${doc.id}, businessName: ${data.businessName}, status: ${data.status}`);
+          return normalizeBusinessProfile(doc.id, data);
+        })
+        .filter((profile) => {
+          const isApproved = profile.status === 'approved';
+          console.log(`   ${isApproved ? '✅' : '❌'} ${profile.name} - status: ${profile.status}`);
+          return isApproved;
+        })
         .sort((a, b) => a.name.localeCompare(b.name));
 
+      console.log(`✅ [Mobile] Showing ${profiles.length} approved profile(s) in UI`);
       onProfiles(profiles);
     },
-    onError
+    (error) => {
+      console.error('❌ [Mobile] Error subscribing to business_profiles:', error);
+      if (onError) onError(error);
+    }
   );
 }
 
@@ -76,7 +92,8 @@ export function businessProfileToRestaurant(profile) {
     operatingHours: profile.operatingHours,
     sourceCollection: 'business_profiles',
     image: profile.image || getPlaceImage({ name: profile.name, category: 'Food' }),
-    rating: 4.5,
+    averageRating: profile.averageRating,
+    ratingCount: profile.ratingCount || 0,
     distance: 'Naga City',
     priceRange: profile.priceRange || 'Rate TBD',
     address: profile.address,
@@ -99,7 +116,8 @@ export function businessProfileToAccommodation(profile) {
     name: profile.name,
     amenities: profile.amenities.length ? profile.amenities.slice(0, 3).join(', ') : profile.categoryLabel,
     image: profile.image || getPlaceImage({ name: profile.name, category: 'Accommodation' }),
-    rating: 4.5,
+    averageRating: profile.averageRating,
+    ratingCount: profile.ratingCount || 0,
     distance: 'Naga City',
     price: profile.priceRange || 'Rate TBD',
     type: profile.category,
@@ -127,7 +145,8 @@ export function businessProfileToDestination(profile) {
     isOpen: profile.isOpen,
     sourceCollection: 'business_profiles',
     image: profile.image || getPlaceImage({ name: profile.name, category: profile.category }),
-    rating: 4.5,
+    averageRating: profile.averageRating,
+    ratingCount: profile.ratingCount || 0,
     distance: formatDistanceFromCenter(latitude, longitude),
     estimatedVisitTime: 'Suggested stop',
     crowdLevel: 'Moderate',
@@ -238,10 +257,12 @@ function normalizeBusinessProfile(id, data = {}) {
     tags: [...toStringList(data.tags), data.budget, data.travelStyle].filter(Boolean),
     operatingHours: Array.isArray(data.operatingHours) ? data.operatingHours : [],
     priceRange: formatPriceRange(data.priceRangeMin, data.priceRangeMax),
-    status: String(data.status || 'draft').toLowerCase(),
+    status: String(data.status || 'approved').toLowerCase(),
     isOpen: data.isOpen !== false,
     latitude,
     longitude,
+    averageRating: data.averageRating != null ? Number(data.averageRating) : null,
+    ratingCount: Number(data.ratingCount || 0),
     image: getBackendImage(data, knownPlace?.image || getPlaceImage({ name: data.businessName || data.name, category })),
     imageUrls: getBackendImages(data),
     source: 'dashboard',
