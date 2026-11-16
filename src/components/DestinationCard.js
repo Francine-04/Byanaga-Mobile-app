@@ -62,9 +62,22 @@ export default function DestinationCard({
           </Pressable> : null}
         </View>
         <View style={styles.metaRow}>
-          <Rating value={destination.rating} />
+          {/* Show rating if available */}
+          {destination.averageRating != null && destination.ratingCount > 0 ? (
+            <Rating 
+              value={destination.averageRating} 
+              label={`(${destination.ratingCount})`} 
+            />
+          ) : destination.sourceCollection !== 'destinations' ? (
+            <Text style={[styles.noRating, { color: theme.colors.textMuted }]}>No ratings</Text>
+          ) : null}
           <Meta icon="navigate-outline" label={destination.distance} color={theme.colors.textMuted} />
-          <Meta icon="time-outline" label={destination.estimatedVisitTime === 'Confirm visit duration' ? 'Not listed' : destination.estimatedVisitTime} color={theme.colors.textMuted} />
+          {/* Only show "Suggested stop" in Recommended for You section */}
+          {recommendation && destination.estimatedVisitTime === 'Suggested stop' ? (
+            <Meta icon="time-outline" label="Suggested stop" color={theme.colors.textMuted} />
+          ) : destination.estimatedVisitTime !== 'Suggested stop' ? (
+            <Meta icon="time-outline" label={destination.estimatedVisitTime === 'Confirm visit duration' ? 'Not listed' : destination.estimatedVisitTime} color={theme.colors.textMuted} />
+          ) : null}
         </View>
         {recommendation ? <View style={styles.recommendation}>
           <Text style={{ color: theme.colors.textMuted, fontSize: 12, lineHeight: 18 }}>{recommendation.description}</Text>
@@ -183,6 +196,10 @@ const styles = StyleSheet.create({
     marginLeft: 3,
     fontSize: 11,
     fontWeight: '700',
+  },
+  noRating: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   quickAdd: {
     marginTop: 12,
