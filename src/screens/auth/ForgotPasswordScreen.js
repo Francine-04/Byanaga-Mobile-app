@@ -198,9 +198,10 @@ export default function ForgotPasswordScreen({ navigation, route }) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
       <Screen
         style={{ backgroundColor: theme.colors.background }}
+        scroll={true}
         contentStyle={[styles.content, (step === 'success' || step === 'verifying') && styles.centeredContent]}
       >
         <View style={styles.inner}>
