@@ -30,7 +30,14 @@ export default function RestaurantCard({ restaurant, compact = false, showAction
           {restaurant.cuisine}  -  {restaurant.priceRange}
         </Text>
         <View style={styles.footer}>
-          <Rating value={restaurant.rating} />
+          {restaurant.averageRating != null && restaurant.ratingCount > 0 ? (
+            <Rating 
+              value={restaurant.averageRating} 
+              label={`(${restaurant.ratingCount} ${restaurant.ratingCount === 1 ? 'user' : 'users'})`} 
+            />
+          ) : (
+            <Text style={[styles.noRating, { color: theme.colors.textMuted }]}>No ratings yet</Text>
+          )}
           {compact ? <Text style={[styles.distance, { color: theme.colors.textMuted }]}>{restaurant.distance}</Text> : null}
         </View>
         {showActions ? (
@@ -98,6 +105,10 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  noRating: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   bookmark: {
     width: 44,
