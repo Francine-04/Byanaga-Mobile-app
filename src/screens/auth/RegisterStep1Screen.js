@@ -75,8 +75,8 @@ export default function RegisterStep1Screen({ navigation }) {
   const age = form.birthday ? calculateAge(form.birthday) : null;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-      <Screen contentStyle={styles.content}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex} keyboardVerticalOffset={0}>
+      <Screen contentStyle={styles.content} scroll={true}>
         <AppHeader onBack={() => navigation.goBack()} />
         <Text style={[styles.title, { color: theme.colors.text }]}>Create Your Account</Text>
         <Text style={[styles.step, { color: theme.colors.text }]}>Step 1 of 2</Text>
