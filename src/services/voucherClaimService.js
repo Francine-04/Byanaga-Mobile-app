@@ -82,7 +82,7 @@ export async function claimVoucher(voucherId, userId) {
     establishmentName: voucher.establishmentName || 'General Offer',
     discount: voucher.discount || '',
     description: voucher.description || '',
-    validUntil: voucher.validUntil || null,
+    validUntil: voucher.validUntil || null, // This will be a Timestamp if from Firestore
     claimedAt: serverTimestamp(),
     usedAt: null,
     status: 'active', // active, used, expired
