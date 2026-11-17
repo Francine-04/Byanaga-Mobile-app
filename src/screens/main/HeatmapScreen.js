@@ -24,6 +24,8 @@ const statusText = {
   'gps-unavailable': 'GPS is temporarily unavailable. No visit will be saved until fresh readings arrive.',
 };
 const dayDate = (day) => new Date(Number(day) * 86400000).toISOString().slice(0, 10);
+const recentCounts = new Map();
+let recentConfig = null;
 
 export default function HeatmapScreen({ navigation }) {
   const { theme, automaticVisits, firebaseUser } = useApp();
@@ -33,24 +35,31 @@ export default function HeatmapScreen({ navigation }) {
   const [toDate, setToDate] = useState(() => dayDate(visitDayKey()));
   const [category, setCategory] = useState('All');
   const [level, setLevel] = useState('All');
-  const [config, setConfig] = useState(null);
+  const [config, setConfig] = useState(recentConfig);
   const [configError, setConfigError] = useState('');
   const [countsError, setCountsError] = useState('');
-  const [snapshot, setSnapshot] = useState(null);
+  const [snapshot, setSnapshot] = useState(() => recentCounts.get(`${String(Number(visitDayKey()) - 6)}:${visitDayKey()}`) || null);
   const [selectedId, setSelectedId] = useState(null);
   useEffect(() => { const timer = setInterval(() => setToday(visitDayKey()), 30000); return () => clearInterval(timer); }, []);
   const from = period === 'Custom dates' ? dateDayKey(fromDate) : String(Number(today) - (period === 'Today' ? 0 : period === 'Last 30 days' ? 29 : 6));
   const to = period === 'Custom dates' ? dateDayKey(toDate) : today;
   const validRange = from && to && Number(from) >= 10957 && Number(from) <= Number(to) && Number(to) <= Number(today) && Number(to) - Number(from) <= 365;
   const rangeKey = `${from}:${to}`;
-  useEffect(() => watchActivityConfig((value) => { setConfig(value); setConfigError(''); }, () => { setConfig(null); setConfigError('Activity settings could not load.'); }), []);
+  useEffect(() => watchActivityConfig((value) => { recentConfig = value; setConfig(value); setConfigError(''); }, () => { setConfigError('Activity settings could not load.'); }), []);
   useEffect(() => {
     setCountsError('');
     if (!validRange) return undefined;
-    return watchAutomaticCounts(from, to, (days) => { setSnapshot({ key: rangeKey, days }); setCountsError(''); }, () => { setSnapshot(null); setCountsError('Visit totals could not load. Check your connection.'); });
+    const cached = recentCounts.get(rangeKey);
+    if (cached) setSnapshot(cached);
+    return watchAutomaticCounts(from, to, (days) => { const next = { key: rangeKey, days }; recentCounts.set(rangeKey, next); setSnapshot(next); setCountsError(''); }, () => { setCountsError('Visit totals could not load. Check your connection.'); });
   }, [from, to, validRange, rangeKey]);
   const loaded = snapshot?.key === rangeKey && validRange;
-  const zones = useMemo(() => loaded ? activityZones(automaticVisits.places, snapshot.days, config, category, level) : [], [loaded, automaticVisits.places, snapshot, config, category, level]);
+  const zones = useMemo(() => loaded && activityLevel(0, config) !== null
+    ? activityZones(automaticVisits.places, snapshot.days, config, category, level)
+    : automaticVisits.places.filter((place) => category === 'All' || place.category === category).map((place) => ({
+      id: place.id, destination: place, label: place.name, latitude: place.latitude, longitude: place.longitude,
+      count: null, level: 'Unknown', colorKey: 'unknown', size: 35,
+    })), [loaded, automaticVisits.places, snapshot, config, category, level]);
   const selected = zones.find((zone) => zone.id === selectedId);
   const thresholdsValid = activityLevel(0, config) !== null;
   const markers = useMemo(() => zonesToMarkers(zones), [zones]);
@@ -82,13 +91,11 @@ export default function HeatmapScreen({ navigation }) {
     {configError || countsError ? <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>{configError || countsError}</Text> : null}
     {!thresholdsValid && !configError && <Text style={{ color: theme.colors.textMuted }}>Waiting for configured activity thresholds.</Text>}
     {!loaded && validRange && !countsError && <Text style={{ color: theme.colors.textMuted }}>Loading recorded visits…</Text>}
-    {loaded && thresholdsValid && <>
-      <LiveHeatmapMap zones={zones} markers={markers} selectedZoneId={selected?.id} onSelectZone={(zone) => setSelectedId(zone.id)} style={styles.map} />
-      {!zones.length && <Text style={{ color: theme.colors.textMuted }}>No registered destinations match these filters.</Text>}
-    </>}
+    <LiveHeatmapMap zones={zones} markers={markers} selectedZoneId={selected?.id} onSelectZone={(zone) => setSelectedId(zone.id)} style={styles.map} />
+    {!zones.length && <Text style={{ color: theme.colors.textMuted }}>No registered destinations match these filters.</Text>}
     {selected && <BottomSheet style={styles.tip}>
       <Text style={[styles.heading, { color: theme.colors.text }]}>{selected.label}</Text>
-      <Text style={[styles.copy, { color: theme.colors.textMuted }]}>{selected.destination.category} · {selected.count} recorded visits · {selected.level}</Text>
+      <Text style={[styles.copy, { color: theme.colors.textMuted }]}>{selected.destination.category} · {selected.count == null ? 'Visit totals unavailable' : `${selected.count} recorded visits`} · {selected.level}</Text>
       <AppButton title="Add to Itinerary" onPress={() => navigation.navigate('CreateItinerary', { place: selected.destination })} style={{ marginTop: 10 }} />
     </BottomSheet>}
     <View style={[styles.tip, { backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primary }]}>

@@ -16,6 +16,7 @@
       }
     },
     "android": {
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.example.tourism_dashboard",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {

@@ -50,20 +50,21 @@ async function requestNagaWeather() {
     wind_speed_unit: 'kmh',
   });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
   let data;
   try {
-    const response = await fetch(`${OPEN_METEO_FORECAST_URL}?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Weather request failed with status ${response.status}.`);
-    }
-    data = await response.json();
-  } catch (error) {
-    if (error.name === 'AbortError') throw new Error('Weather request timed out. Please try again.');
-    throw error;
-  } finally {
-    clearTimeout(timer);
+    data = await requestWeatherPayload(params);
+  } catch (firstError) {
+    // Some mobile networks reject or stall the larger hourly/model request.
+    // Current conditions remain useful even when rain probability is absent.
+    const simple = new URLSearchParams({
+      latitude: String(NAGA_WEATHER_COORDS.latitude),
+      longitude: String(NAGA_WEATHER_COORDS.longitude),
+      current: params.get('current'),
+      timezone: NAGA_TIMEZONE,
+      forecast_days: '1',
+    });
+    try { data = await requestWeatherPayload(simple); }
+    catch { throw firstError; }
   }
   const current = data?.current;
   if (!current || current.temperature_2m == null || !Number.isFinite(Number(current.temperature_2m))) {
@@ -73,7 +74,7 @@ async function requestNagaWeather() {
   const readingTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(current.time || '')
     ? Date.parse(`${current.time}+08:00`) : NaN;
   const age = Date.now() - readingTime;
-  if (!Number.isFinite(age) || age > 90 * 60 * 1000 || age < -30 * 60 * 1000) {
+  if (!Number.isFinite(age) || age > 3 * 60 * 60 * 1000 || age < -30 * 60 * 1000) {
     throw new Error('Current Naga City weather is unavailable or out of date. Please refresh again.');
   }
 
@@ -106,6 +107,21 @@ async function requestNagaWeather() {
     observedAt: current.time || null,
     updatedAt: new Date().toISOString(),
   };
+}
+
+async function requestWeatherPayload(params) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`${OPEN_METEO_FORECAST_URL}?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
+    if (!response.ok) throw new Error(`Weather request failed with status ${response.status}.`);
+    return await response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('Weather request timed out. Please try again.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function getCurrentRainChance(hourly, currentTime) {

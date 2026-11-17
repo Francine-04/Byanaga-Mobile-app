@@ -67,7 +67,7 @@ export function generateItinerary({ destinations = [], restaurants = [], events 
     ? `Why visit these places? This itinerary brings together ${categories.join(', ').toLowerCase()} stops in Naga City${matchedInterests.length ? ` that include matches for your interests in ${matchedInterests.join(', ').toLowerCase()}` : ' for you to explore'}. The route is arranged to reduce travel between stops and fit your selected trip duration. ${weatherSummary} Confirm opening hours before visiting.`
     : weatherSummary;
   return {
-    days: days.some((day) => day.places.length) ? days : [], travelDate: date,
+    days, travelDate: date,
     advice: `${summary}${stops.length && days.some((day) => !day.places.length) ? ' Some days have no suggested stops because there are not enough available places. You can add stops manually.' : ''}`,
     recommendation: {
       method: 'preference-matching-nearest-stop-v1', generatedAt: new Date(now).toISOString(),

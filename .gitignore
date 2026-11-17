@@ -20,6 +20,7 @@ expo-env.d.ts
 coverage/
 
 # Local environment files
+.expo-verification/
 .env
 .env.*
 !.env.example

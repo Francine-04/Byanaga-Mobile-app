@@ -195,21 +195,6 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
                   ))}
                 </View>
 
-                <MapboxLocationPreview place={selectedPlace} height={190} style={styles.mapPreview} />
-
-                {selectedPlace ? (
-                  <View style={[styles.selectedCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-                    <Text style={[styles.selectedTitle, { color: theme.colors.text }]} numberOfLines={1}>
-                      {selectedPlace.name}
-                    </Text>
-                    <Text style={[styles.selectedMeta, { color: theme.colors.textMuted }]} numberOfLines={2}>
-                      {selectedPlace.address}
-                    </Text>
-                    <VisitTimeField value={visitTime} onChange={setVisitTime} style={styles.timeField} />
-                    <AppButton title="Add to Itinerary" onPress={addSelectedPlace} disabled={!visitTime.trim()} />
-                  </View>
-                ) : null}
-
                 {error ? (
                   <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerSoft, borderColor: theme.colors.danger }]}>
                     <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
@@ -223,6 +208,7 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
             renderItem={({ item }) => (
               <PlaceResult place={item} selected={selectedPlace?.id === item.id} onPress={() => selectPlace(item)} />
             )}
+            ListFooterComponent={selectedPlace ? <MapboxLocationPreview place={selectedPlace} height={190} style={styles.mapPreview} /> : null}
             ListEmptyComponent={
               !loading ? (
                 <View style={styles.empty}>
@@ -232,6 +218,12 @@ export default function DestinationSelectorModal({ visible, dayLabel, onClose, o
               ) : null
             }
           />
+          {selectedPlace ? <View style={[styles.selectedCard, styles.bottomSelection, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={[styles.selectedTitle, { color: theme.colors.text }]} numberOfLines={1}>{selectedPlace.name}</Text>
+            <Text style={[styles.selectedMeta, { color: theme.colors.textMuted }]} numberOfLines={1}>{selectedPlace.address}</Text>
+            <VisitTimeField value={visitTime} onChange={setVisitTime} style={styles.timeField} />
+            <AppButton title="Add to Itinerary" onPress={addSelectedPlace} disabled={!visitTime.trim()} />
+          </View> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
@@ -347,6 +339,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
   },
+  bottomSelection: { marginTop: 0, marginHorizontal: 12, marginBottom: 6 },
   selectedTitle: {
     fontSize: 15,
     fontWeight: '900',

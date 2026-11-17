@@ -14,9 +14,9 @@ export default function PhilippineAddressFields({ value = {}, onChange, disabled
   return <View pointerEvents={disabled ? 'none' : 'auto'}>
     <Text style={{ color: theme.colors.textMuted, marginBottom: 10, fontSize: 12 }}>Home location in the Philippines (optional)</Text>
     <SelectField label="Region" value={region?.name || ''} options={regions.map((item) => item.name)} searchable
-      onSelect={(name) => onChange({ regionCode: regions.find((item) => item.name === name).code, provinceCode: '', city: '' })} />
+      onSelect={(name) => { const selected = regions.find((item) => item.name === name); if (selected) onChange({ regionCode: selected.code, provinceCode: '', city: '' }); }} />
     {region && <SelectField label="Province" value={province?.name || ''} options={provinceOptions.map((item) => item.name)} searchable
-      onSelect={(name) => onChange({ ...value, provinceCode: provinceOptions.find((item) => item.name === name).code, city: '' })} />}
+      onSelect={(name) => { const selected = provinceOptions.find((item) => item.name === name); if (selected) onChange({ ...value, provinceCode: selected.code, city: '' }); }} />}
     {province && <SelectField label="City / Municipality" value={value.city || ''} options={cityOptions.map((item) => item.fullName).sort()} searchable
       onSelect={(city) => onChange({ ...value, city })} />}
   </View>;

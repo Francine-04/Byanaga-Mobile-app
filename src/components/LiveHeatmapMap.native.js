@@ -21,6 +21,7 @@ try {
 export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneId, onSelectZone, style }) {
   const { theme } = useApp();
   const [mapError, setMapError] = useState(null);
+  const [mapReady, setMapReady] = useState(false);
   const accessToken = getMapboxAccessToken();
   const selectedCenter = useMemo(() => getSelectedZoneLngLat(zones, selectedZoneId), [selectedZoneId, zones]);
   const featureCollection = useMemo(
@@ -65,6 +66,7 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
         logoEnabled
         compassEnabled={false}
         onDidFailLoadingMap={() => setMapError('Live map could not load. Please check your connection and Mapbox token.')}
+        onDidFinishLoadingMap={() => setMapReady(true)}
       >
         <Mapbox.Camera
           centerCoordinate={selectedZoneId ? selectedCenter : [NAGA_CENTER.longitude, NAGA_CENTER.latitude]}
@@ -114,6 +116,7 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
           />
         </Mapbox.ShapeSource>
       </Mapbox.MapView>
+      {!mapReady && <View style={styles.preview} pointerEvents="none"><MapPlaceholder zones={zones} markers={markers} selectedZoneId={selectedZoneId} style={styles.previewMap} /></View>}
       <View style={[styles.badge, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Ionicons name="map-outline" size={14} color={theme.colors.primary} />
         <Text style={[styles.badgeText, { color: theme.colors.text }]}>Live Naga map</Text>
@@ -137,6 +140,8 @@ const styles = StyleSheet.create({
   mapFill: {
     flex: 1,
   },
+  preview: { ...StyleSheet.absoluteFillObject },
+  previewMap: { flex: 1, width: '100%' },
   badge: {
     position: 'absolute',
     left: 12,

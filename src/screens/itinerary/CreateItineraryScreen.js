@@ -37,12 +37,12 @@ export default function CreateItineraryScreen({ navigation, route }) {
     if (!replace && days.some((day) => day.places.length)) { setReplacePending(true); return; }
     setReplacePending(false);
     const result = generateItinerary({ ...recommendationCatalog, preferences, weather, travelDate });
-    if (!result.days.length) { setFormError('No eligible Naga City places available. Please add places manually.'); return; }
+    if (!result.days.some((day) => day.places.length)) setFormError('No suggested stops were found. Add places manually to your days.');
     setDays(result.days);
     setTravelDate(result.travelDate);
     setRecommendation(result.recommendation);
     setSuggestionMessage(result.advice);
-    setFormError(null);
+    if (result.days.some((day) => day.places.length)) setFormError(null);
   };
   const [tripId, setTripId] = useState(() => route.params?.trip?.id || null);
   const [tripName, setTripName] = useState(route.params?.trip?.name || 'My Naga City Trip');
@@ -124,7 +124,12 @@ export default function CreateItineraryScreen({ navigation, route }) {
   };
 
   const addDay = () => {
-    setDays((current) => [...current, { id: `day-${current.length + 1}`, open: true, places: [] }]);
+    setDays((current) => [...current, { id: `day-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, open: true, places: [] }]);
+  };
+
+  const deleteDay = (dayId) => {
+    setDays((current) => current.length > 1 ? current.filter((day) => day.id !== dayId) : current);
+    if (selectorDayId === dayId) setSelectorDayId(null);
   };
 
   const toggleDay = (dayId) => {
@@ -238,15 +243,20 @@ export default function CreateItineraryScreen({ navigation, route }) {
 
         {days.map((day, dayIndex) => (
           <AppCard key={day.id} style={styles.dayCard}>
+            <View style={styles.dayHeader}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Toggle day ${dayIndex + 1}`}
               onPress={() => toggleDay(day.id)}
-              style={styles.dayHeader}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
             >
               <Text style={[styles.dayTitle, { color: theme.colors.text }]}>Day {dayIndex + 1}</Text>
               <Ionicons name={day.open ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.text} />
             </Pressable>
+            {days.length > 1 && <Pressable accessibilityRole="button" accessibilityLabel={`Delete day ${dayIndex + 1}`} onPress={() => deleteDay(day.id)} style={styles.deletePlace}>
+              <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+            </Pressable>}
+            </View>
             {day.open ? (
               <View style={[styles.dayBody, { borderColor: theme.colors.border }]}>
                 {day.places.length ? (

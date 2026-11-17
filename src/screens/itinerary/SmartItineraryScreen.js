@@ -44,7 +44,7 @@ export default function SmartItineraryScreen({ navigation }) {
           {!day.places.length && <Text style={[styles.copy, { color: theme.colors.textMuted }]}>No suggested stops for this day. Add your own when customizing.</Text>}
           {day.places.map((stop, index) => <TimelineItem key={stop.entryId} stop={stop} isLast={index === day.places.length - 1} />)}
         </View>)}
-        {!pending && !loadError && !stops.length ? <Text style={{ color: theme.colors.text }}>No published Naga City places with valid locations are available for these dates.</Text> : null}
+        {!pending && !loadError && !stops.length ? <Text style={{ color: theme.colors.text }}>No suggested stops are available for these dates. You can add places to each day when customizing.</Text> : null}
       </View>
       <AppCard style={styles.summary}>
         <Metric label="Places" value={String(stops.length)} />
@@ -52,7 +52,7 @@ export default function SmartItineraryScreen({ navigation }) {
         <Metric label="Schedule" value="Editable" />
       </AppCard>
       <View style={styles.actions}>
-        <AppButton title="Customize & Save" onPress={customize} disabled={!stops.length} style={styles.customize} />
+        <AppButton title="Customize & Save" onPress={customize} disabled={pending || !!loadError || !suggestion.days.length} style={styles.customize} />
       </View>
     </Screen>
   );

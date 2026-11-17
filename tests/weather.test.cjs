@@ -62,7 +62,19 @@ test('overlapping refreshes share one request but subsequent refreshes fetch new
 
 test('a failed weather request can be retried', async () => {
   let calls = 0;
-  const service = weather(async () => { if (++calls === 1) throw new Error('offline'); return { ok: true, json: async () => fixture }; });
+  const service = weather(async () => { if (++calls <= 2) throw new Error('offline'); return { ok: true, json: async () => fixture }; });
   await assert.rejects(service.fetchNagaWeather(), /offline/);
   assert.equal((await service.fetchNagaWeather()).temperature, 28);
+});
+
+test('weather falls back to a smaller current-conditions request', async () => {
+  let calls = 0;
+  const service = weather(async (url) => {
+    calls++;
+    if (calls === 1) throw new Error('network failed');
+    assert.equal(new URL(url).searchParams.has('hourly'), false);
+    return { ok: true, json: async () => fixture };
+  });
+  assert.equal((await service.fetchNagaWeather()).temperature, 28);
+  assert.equal(calls, 2);
 });

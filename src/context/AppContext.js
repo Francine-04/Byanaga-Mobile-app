@@ -29,7 +29,6 @@ import {
   subscribeToUserItineraries,
   updateItineraryStatusInDatabase,
 } from '../services/itineraryService';
-import { getRememberedTraveler } from '../services/rememberMeService';
 import { fallbackWeather, fetchNagaWeather } from '../services/weatherService';
 import { makeTheme } from '../theme/theme';
 import { attachEstablishmentContent } from '../utils/establishmentContent';
@@ -125,18 +124,11 @@ export function AppProvider({ children }) {
 
       setIsGuestMode(false);
 
-      try {
-        const remembered = await getRememberedTraveler();
-        if (!active || request !== generation) return;
-
-        if (remembered?.uid === user.uid) {
-          setIsLoggedIn(true);
-        }
-
-      } catch (error) {
-        if (active && request === generation) setStorageError('Unable to restore Remember Me on this device.');
-      } finally {
-        if (active && request === generation) setAuthReady(true);
+      // Firebase Auth already persisted and restored this user. "Remember Me"
+      // only controls the prefilled email, not whether the session survives a restart.
+      if (active && request === generation) {
+        setIsLoggedIn(true);
+        setAuthReady(true);
       }
     });
 

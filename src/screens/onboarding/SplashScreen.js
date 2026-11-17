@@ -22,9 +22,9 @@ export default function SplashScreen({ navigation }) {
 
     if (!authReady && !restoreTimedOut) return undefined;
     const returning = isLoggedIn && firebaseUser && !firebaseUser.isAnonymous;
-    if (returning && !travelerReady && !backendErrors.auth && !restoreTimedOut) return undefined;
+    if (returning && !travelerReady && !backendErrors.auth) return undefined;
     const timer = setTimeout(() => {
-      if (!authReady || (returning && !travelerReady)) {
+      if (!authReady || (returning && !travelerReady && !firebaseUser)) {
         navigation.replace('Auth', { screen: 'Login', params: { message: backendErrors.auth || 'Unable to restore your profile. Check your connection and log in again.' } });
       } else if (!returning) navigation.replace('Onboarding1');
       else if (onboardingStep === 'preferences') navigation.replace('Auth', { screen: 'RegisterStep2', params: { socialOnboarding: true } });

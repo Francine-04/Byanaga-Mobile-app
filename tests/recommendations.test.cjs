@@ -106,7 +106,8 @@ test('weekend generation uses distinct places and never invents stops for an emp
   assert.equal(result.days.length, 2);
   const stops = result.days.flatMap((day) => day.places);
   assert.equal(new Set(stops.map((stop) => stop.placeId)).size, stops.length);
-  assert.equal(run({ destinations: [] }).days.length, 0);
+  assert.equal(run({ destinations: [] }).days.length, 1);
+  assert.equal(run({ destinations: [] }).days[0].places.length, 0);
 });
 test('unpublished, closed, invalid-coordinate and outside-city places are excluded', () => {
   const destinations = [place('outside', 'Nature', { latitude: 14.6, longitude: 120.9 }), place('invalid', 'Nature', { latitude: null, longitude: null }),
@@ -122,7 +123,8 @@ test('events use backend dates and times, preserving empty first days for weeken
   assert.equal(result.days[0].places.length, 0);
   assert.equal(result.days[1].places[0].eventId, 'event1');
   assert.equal(result.days[1].places[0].visitTime, '14:00');
-  assert.equal(run({ destinations: [], events: [event] }).days.length, 0);
+  assert.equal(run({ destinations: [], events: [event] }).days.length, 1);
+  assert.equal(run({ destinations: [], events: [event] }).days[0].places.length, 0);
 });
 test('published operating hours determine the scheduled visit', () => {
   const result = run({ destinations: [place('restaurant', 'Food', { operatingHours: [{ day: 'Tuesday', isOpen: true, openTime: '11:30', closeTime: '18:00' }] })] });
