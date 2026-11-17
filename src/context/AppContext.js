@@ -20,6 +20,7 @@ import {
   subscribeToEstablishmentPosts,
 } from '../services/establishmentContentService';
 import { subscribeToUserVoucherClaims } from '../services/voucherClaimService';
+import { subscribeToBusinessRatings } from '../services/ratingService';
 import { firebaseProjectId } from '../services/firebaseApp';
 import { AUTH_REQUIRED_ERROR_CODE, subscribeToTravelerRecord, subscribeToAuthState, travelerRecordToAppState, toggleTravelerBookmark } from '../services/authService';
 import {
@@ -72,6 +73,7 @@ export function AppProvider({ children }) {
   const [establishmentPosts, setEstablishmentPosts] = useState([]);
   const [establishmentGallery, setEstablishmentGallery] = useState([]);
   const [establishmentMenuItems, setEstablishmentMenuItems] = useState([]);
+  const [establishmentRatings, setEstablishmentRatings] = useState(new Map()); // Map<businessId, {averageRating, ratingCount}>
   const [claimedVouchers, setClaimedVouchers] = useState([]);
   const [visitorRecords, setVisitorRecords] = useState([]);
   const [backendErrors, setBackendErrors] = useState({});
@@ -330,6 +332,31 @@ export function AppProvider({ children }) {
     return unsubscribe;
   }, [firebaseUser?.uid, firebaseUser?.isAnonymous, isGuestMode, updateBackendError]);
 
+  // Subscribe to ratings for all approved establishments
+  useEffect(() => {
+    if (!businessProfiles.length) return undefined;
+
+    const unsubscribes = [];
+    
+    businessProfiles.forEach(profile => {
+      const unsubscribe = subscribeToBusinessRatings(
+        profile.dashboardId,
+        (ratings) => {
+          setEstablishmentRatings(prev => {
+            const next = new Map(prev);
+            next.set(profile.dashboardId, ratings);
+            return next;
+          });
+        }
+      );
+      unsubscribes.push(unsubscribe);
+    });
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [businessProfiles]);
+
   const refreshWeather = useCallback(async () => {
     try {
       const nextWeather = await fetchNagaWeather();
@@ -371,12 +398,24 @@ export function AppProvider({ children }) {
     () => establishmentMenuItems.filter((item) => approvedEstablishmentIds.has(item.establishmentId)),
     [approvedEstablishmentIds, establishmentMenuItems]
   );
-  const establishmentProfiles = useMemo(() => attachEstablishmentContent({
-    profiles: businessProfiles,
-    posts: visibleEstablishmentPosts,
-    gallery: visibleEstablishmentGallery,
-    menuItems: visibleEstablishmentMenuItems,
-  }), [businessProfiles, visibleEstablishmentGallery, visibleEstablishmentMenuItems, visibleEstablishmentPosts]);
+  const establishmentProfiles = useMemo(() => {
+    const profiles = attachEstablishmentContent({
+      profiles: businessProfiles,
+      posts: visibleEstablishmentPosts,
+      gallery: visibleEstablishmentGallery,
+      menuItems: visibleEstablishmentMenuItems,
+    });
+    
+    // Attach ratings from separate collection
+    return profiles.map(profile => {
+      const ratings = establishmentRatings.get(profile.dashboardId) || { averageRating: null, ratingCount: 0 };
+      return {
+        ...profile,
+        averageRating: ratings.averageRating,
+        ratingCount: ratings.ratingCount,
+      };
+    });
+  }, [businessProfiles, visibleEstablishmentGallery, visibleEstablishmentMenuItems, visibleEstablishmentPosts, establishmentRatings]);
 
   const businessDestinations = useMemo(() => (
     establishmentProfiles
