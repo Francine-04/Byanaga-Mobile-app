@@ -91,8 +91,7 @@ export default function VoucherCard({ voucher, onPress, horizontal = false, styl
             const maxLimit = voucher.maxClaimLimit || voucher.claimLimit || 0;
             const claimed = voucher.claimedCount || voucher.claimCount || 0;
             const remaining = Math.max(0, maxLimit - claimed);
-            console.log('Voucher remaining calc:', { maxLimit, claimed, remaining, voucher });
-            return `${remaining} remaining`;
+            return `${remaining} left to claim`;
           })()}
         </Text>
         </View>

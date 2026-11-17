@@ -5,13 +5,12 @@ import {
   getDocs, 
   query, 
   where, 
-  addDoc, 
   updateDoc, 
   onSnapshot,
-  increment,
+  runTransaction,
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from './firebaseApp';
+import { auth, db } from './firebaseApp';
 
 const VOUCHER_CLAIMS_COLLECTION = 'voucher_claims';
 const VOUCHERS_COLLECTION = 'vouchers';
@@ -28,83 +27,53 @@ export async function claimVoucher(voucherId, userId) {
     throw new Error('Voucher ID and User ID are required');
   }
 
-  // Check if voucher exists and is available
+  if (auth.currentUser?.uid !== userId || auth.currentUser?.isAnonymous) {
+    throw new Error('Please sign in again to claim this voucher');
+  }
+
+  // Preserve compatibility with claims written by earlier app versions.
+  const existingClaimQuery = query(collection(db, VOUCHER_CLAIMS_COLLECTION),
+    where('voucherId', '==', voucherId), where('userId', '==', userId));
+  const legacyDashboardQuery = query(collection(db, VOUCHER_CLAIMS_COLLECTION),
+    where('voucherId', '==', voucherId), where('touristId', '==', userId));
+  const [mobileClaims, dashboardClaims] = await Promise.all([getDocs(existingClaimQuery), getDocs(legacyDashboardQuery)]);
+  if (!mobileClaims.empty || !dashboardClaims.empty) throw new Error('You have already claimed this voucher');
+
   const voucherRef = doc(db, VOUCHERS_COLLECTION, voucherId);
-  const voucherSnap = await getDoc(voucherRef);
-
-  if (!voucherSnap.exists()) {
-    throw new Error('Voucher not found');
-  }
-
-  const voucher = voucherSnap.data();
-
-  // Check if voucher is approved
-  if (voucher.status !== 'approved') {
-    throw new Error('This voucher is not available');
-  }
-
-  // Check if voucher has expired
-  const now = new Date();
-  if (voucher.validUntil) {
-    const validUntil = voucher.validUntil.toDate ? voucher.validUntil.toDate() : new Date(voucher.validUntil);
-    if (validUntil < now) {
-      throw new Error('This voucher has expired');
+  const claimRef = doc(db, VOUCHER_CLAIMS_COLLECTION, `${voucherId}_${userId}`);
+  const claimCode = doc(collection(db, VOUCHER_CLAIMS_COLLECTION)).id.toUpperCase();
+  return runTransaction(db, async (transaction) => {
+    const voucherSnap = await transaction.get(voucherRef);
+    const claimSnap = await transaction.get(claimRef);
+    if (!voucherSnap.exists()) throw new Error('Voucher not found');
+    if (claimSnap.exists()) throw new Error('You have already claimed this voucher');
+    const voucher = voucherSnap.data();
+    if (voucher.status !== 'approved' && voucher.status !== 'active') throw new Error('This voucher is not available');
+    const now = new Date();
+    const validFrom = voucher.validFrom?.toDate?.() || new Date(voucher.validFrom);
+    const validUntil = voucher.validUntil?.toDate?.() || new Date(voucher.validUntil);
+    if (!Number.isFinite(validFrom.getTime()) || validFrom > now || !Number.isFinite(validUntil.getTime()) || validUntil < now) {
+      throw new Error('This voucher is not currently valid');
     }
-  }
-
-  // Check if user already claimed this voucher
-  const existingClaimQuery = query(
-    collection(db, VOUCHER_CLAIMS_COLLECTION),
-    where('voucherId', '==', voucherId),
-    where('userId', '==', userId)
-  );
-  const existingClaimSnap = await getDocs(existingClaimQuery);
-
-  if (!existingClaimSnap.empty) {
-    throw new Error('You have already claimed this voucher');
-  }
-
-  // Check if claim limit reached (check both field names for compatibility)
-  const currentClaimCount = voucher.claimedCount || voucher.claimCount || 0;
-  const maxLimit = voucher.maxClaimLimit || voucher.claimLimit || 0;
-  
-  if (maxLimit > 0 && currentClaimCount >= maxLimit) {
-    throw new Error('This voucher has reached its claim limit');
-  }
-
-  // Create the claim
-  const claimData = {
-    voucherId,
-    userId,
-    voucherTitle: voucher.title || 'Voucher',
-    voucherCode: voucher.code || generateClaimCode(),
-    establishmentId: voucher.establishmentId || null,
-    establishmentName: voucher.establishmentName || 'General Offer',
-    discount: voucher.discount || '',
-    description: voucher.description || '',
-    validUntil: voucher.validUntil || null, // This will be a Timestamp if from Firestore
-    claimedAt: serverTimestamp(),
-    usedAt: null,
-    status: 'active', // active, used, expired
-    claimCode: generateClaimCode(), // Unique claim code for this user
-  };
-
-  const claimRef = await addDoc(collection(db, VOUCHER_CLAIMS_COLLECTION), claimData);
-
-  // Update voucher claimed count (update both fields for compatibility)
-  console.log('Updating voucher claim count in Firebase...');
-  await updateDoc(voucherRef, {
-    claimedCount: increment(1),
-    claimCount: increment(1),
-    updatedAt: serverTimestamp(),
+    const count = Number(voucher.claimCount ?? voucher.claimedCount ?? 0);
+    const limit = Number(voucher.maxClaimLimit ?? voucher.claimLimit ?? 0);
+    if (!Number.isInteger(limit) || limit < 1 || !Number.isInteger(count) || count < 0 || count >= limit) {
+      throw new Error('This voucher has reached its claim limit');
+    }
+    const claimData = {
+      voucherId, userId, touristId: userId,
+      voucherTitle: voucher.title || 'Voucher',
+      voucherCode: claimCode, claimCode,
+      establishmentId: voucher.establishmentId || null,
+      establishmentName: voucher.establishmentName || 'General Offer',
+      discount: voucher.discount || (voucher.discountType === 'fixed' ? `PHP ${voucher.discountValue} OFF` : `${voucher.discountValue}% OFF`),
+      description: voucher.description || '', validUntil: voucher.validUntil,
+      claimedAt: serverTimestamp(), usedAt: null, isRedeemed: false, status: 'active',
+    };
+    transaction.set(claimRef, claimData);
+    transaction.update(voucherRef, { claimCount: count + 1, claimedCount: count + 1, updatedAt: serverTimestamp() });
+    return { id: claimRef.id, ...claimData, claimedAt: now };
   });
-  console.log('Voucher claim count updated successfully');
-
-  return {
-    id: claimRef.id,
-    ...claimData,
-    claimedAt: new Date(),
-  };
 }
 
 /**
@@ -140,7 +109,9 @@ export async function markVoucherAsUsed(claimId, userId) {
   // Mark as used
   await updateDoc(claimRef, {
     status: 'used',
+    isRedeemed: true,
     usedAt: serverTimestamp(),
+    redeemedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 }
@@ -246,14 +217,5 @@ export async function hasUserClaimedVoucher(voucherId, userId) {
 }
 
 /**
- * Generate a unique claim code
- * @returns {string} A 8-character alphanumeric code
+ * Claim codes are generated from Firestore's random document IDs inside claimVoucher.
  */
-function generateClaimCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
