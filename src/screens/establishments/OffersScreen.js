@@ -6,6 +6,7 @@ import AppHeader, { goToDashboard } from '../../components/AppHeader';
 import EmptyState from '../../components/EmptyState';
 import Screen from '../../components/Screen';
 import VoucherCard from '../../components/VoucherCard';
+import { voucherBelongsToProfile } from '../../utils/establishmentContent';
 
 export default function OffersScreen({ navigation, route }) {
   const { theme, vouchers, establishments, notificationError } = useApp();
@@ -17,7 +18,7 @@ export default function OffersScreen({ navigation, route }) {
   const categories = useMemo(() => {
     const cats = new Set();
     vouchers.forEach(v => {
-      const establishment = establishments.find(e => e.dashboardId === v.establishmentId);
+      const establishment = establishments.find(e => voucherBelongsToProfile(v, e));
       if (establishment?.categoryLabel) cats.add(establishment.categoryLabel);
     });
     return ['all', ...Array.from(cats).sort()];
@@ -30,7 +31,7 @@ export default function OffersScreen({ navigation, route }) {
     // Filter by category
     if (filterCategory !== 'all') {
       filtered = filtered.filter(v => {
-        const establishment = establishments.find(e => e.dashboardId === v.establishmentId);
+        const establishment = establishments.find(e => voucherBelongsToProfile(v, e));
         return establishment?.categoryLabel === filterCategory;
       });
     }

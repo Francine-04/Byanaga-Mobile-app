@@ -25,6 +25,7 @@ export function getSuppliedPlacePhotos(place = {}) {
 const hiddenPlaceNames = new Set([
   'Camarines Sur National High School', 'Cararayan', 'CBD II Bus Terminal',
   'Concepcion Grande', 'Dayangdang',
+  'Tinago Falls', 'Magsaysay Park', 'Bicol Medical Center Area',
 ].map(normalizePhotoName));
 
 export function isVisiblePlace(place) {

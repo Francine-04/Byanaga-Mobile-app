@@ -1,7 +1,6 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
-import { getStorage } from 'firebase/storage';
 import { createFirebaseAuth } from './createFirebaseAuth';
 
 const googleServices = require('../../google-services.json');
@@ -54,5 +53,4 @@ export const firebaseApp = app;
 export const auth = createFirebaseAuth(app);
 export const db = firestoreDb;
 export const realtimeDb = getDatabase(app);
-export const storage = getStorage(app);
 export const firebaseProjectId = firebaseConfig.projectId;

@@ -43,13 +43,13 @@ function mount() {
     '@expo/vector-icons': { Ionicons: 'Icon' },
     '../../context/AppContext': { useApp: () => app },
     '../../data/nationalities': { nationalityOptions: [] },
-    '../../components/AppHeader': { __esModule: true, default: 'AppHeader', goToDashboard: () => navigationEvents.push('Home'), goToMain: (_, tab) => navigationEvents.push(tab) },
+    '../../components/AppHeader': { __esModule: true, default: 'AppHeader', goBackToPrevious: () => navigationEvents.push('Profile') },
     '../../services/profilePhotoService': { saveProfileEdits: (uid, profile, assets) => {
       calls.push({ uid, profile, assets });
       return new Promise((resolve, reject) => { complete = resolve; fail = reject; });
     } },
   };
-  for (const component of ['AppButton', 'AppTextInput', 'ProfilePortrait', 'Screen', 'SelectionSheet', 'SettingsRow']) mocks['../../components/' + component] = component;
+  for (const component of ['AppButton', 'AppTextInput', 'ProfilePortrait', 'Screen', 'SelectionSheet', 'SettingsRow', 'PhilippineAddressFields']) mocks['../../components/' + component] = component;
   const { code } = babel.transformFileSync(path.resolve(__dirname, '../src/screens/profile/EditProfileScreen.js'), { babelrc: false, configFile: false, plugins: ['@babel/plugin-transform-react-jsx', '@babel/plugin-transform-modules-commonjs'] });
   const exports = {};
   vm.runInNewContext(code, { exports, require: (id) => { if (!(id in mocks)) throw new Error(id); return mocks[id]; } });

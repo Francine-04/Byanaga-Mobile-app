@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -18,6 +18,12 @@ const genderOptions = ['MALE', 'FEMALE'];
 
 export default function RegisterStep1Screen({ navigation }) {
   const { theme } = useApp();
+  const scrollRef = useRef(null);
+  const scrollFocusedField = (event) => {
+    if (Platform.OS === 'web') return;
+    const target = event.nativeEvent?.target;
+    setTimeout(() => scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard?.(target, 110, true), 250);
+  };
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -75,8 +81,8 @@ export default function RegisterStep1Screen({ navigation }) {
   const age = form.birthday ? calculateAge(form.birthday) : null;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex} keyboardVerticalOffset={0}>
-      <Screen contentStyle={styles.content} scroll={true}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined} style={styles.flex} keyboardVerticalOffset={0}>
+      <Screen contentStyle={styles.content} scroll={true} scrollRef={scrollRef}>
         <AppHeader onBack={() => navigation.goBack()} />
         <Text style={[styles.title, { color: theme.colors.text }]}>Create Your Account</Text>
         <Text style={[styles.step, { color: theme.colors.text }]}>Step 1 of 2</Text>
@@ -163,6 +169,7 @@ export default function RegisterStep1Screen({ navigation }) {
         <PhilippineAddressFields value={form.homeLocation} onChange={(value) => update('homeLocation', value)} />
         <AppTextInput
           label="Gmail Address"
+          onFocus={scrollFocusedField}
           value={form.email}
           onChangeText={(value) => update('email', normalizeEmail(value))}
           placeholder="name@gmail.com"
@@ -176,6 +183,7 @@ export default function RegisterStep1Screen({ navigation }) {
         />
         <AppTextInput
           label="Password"
+          onFocus={scrollFocusedField}
           value={form.password}
           onChangeText={(value) => update('password', value)}
           placeholder="Enter password"
@@ -194,6 +202,7 @@ export default function RegisterStep1Screen({ navigation }) {
         <Text style={[styles.helpText, { color: passwordInvalid ? theme.colors.danger : passwordValid ? theme.colors.success : theme.colors.textMuted }]}>{passwordRuleText}</Text>
         <AppTextInput
           label="Confirm Password"
+          onFocus={scrollFocusedField}
           value={form.confirmPassword}
           onChangeText={(value) => update('confirmPassword', value)}
           placeholder="Confirm password"

@@ -25,10 +25,10 @@ test('festival placeholder listings are hidden but actual supplied photos are re
 
 test('requested non-tourism listings stay hidden even with fallback images', () => {
   const { placesWithImages, isVisiblePlace } = load('src/utils/suppliedPlaceImages.js');
-  const names = ['Camarines Sur National High School', 'Cararayan', 'CBD II Bus Terminal', 'Concepcion Grande', 'Dayangdang'];
+  const names = ['Camarines Sur National High School', 'Cararayan', 'CBD II Bus Terminal', 'Concepcion Grande', 'Dayangdang', 'Tinago Falls', 'Magsaysay Park', 'Bicol Medical Center Area'];
   const records = names.map((name) => ({ name, image: 'fallback.jpg' }));
   assert.equal(placesWithImages(records).length, 0);
-  assert.equal(records.length, 5);
+  assert.equal(records.length, 8);
   assert.equal(isVisiblePlace({ name: 'The Church of Jesus Christ of Latter-day Saints Cararayan Group (Apetrior Residence)' }), true);
 });
 

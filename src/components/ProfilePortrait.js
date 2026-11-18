@@ -22,12 +22,19 @@ export default function ProfilePortrait({ navigation, profile, onPhotoSelected, 
     setSelecting(field);
     try {
       const ImagePicker = await import('expo-image-picker');
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 0.8 });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8 });
       if (result.canceled) return;
       const asset = result.assets?.[0];
       if (!asset?.uri) throw new Error('The selected photo could not be read. Please choose it again.');
-      validatePhotoMetadata(asset);
-      onPhotoSelected?.(field, asset);
+      const ImageManipulator = await import('expo-image-manipulator');
+      const resized = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: field === 'coverImage' ? 900 : 480 } }],
+        { compress: 0.35, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      const prepared = { ...resized, fileName: 'profile-photo.jpg', mimeType: 'image/jpeg' };
+      validatePhotoMetadata(prepared);
+      onPhotoSelected?.(field, prepared);
     } catch (cause) {
       setError(cause?.message || 'Unable to upload your photo. Please try again.');
     } finally {

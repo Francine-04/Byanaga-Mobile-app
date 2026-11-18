@@ -53,13 +53,6 @@ const rawNagaPlaces = [
     longitude: 123.2092,
   },
   {
-    id: 'magsaysay-park',
-    name: 'Magsaysay Park',
-    category: 'Nature',
-    latitude: 13.6285,
-    longitude: 123.1992,
-  },
-  {
     id: 'museo-del-seminario',
     name: 'Museo del Seminario Conciliar de Nueva Caceres',
     aliases: ['museo del seminario'],

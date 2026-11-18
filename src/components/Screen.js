@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 
-export default function Screen({ children, scroll = true, style, contentStyle, edges = true, footer }) {
+export default function Screen({ children, scroll = true, style, contentStyle, edges = true, footer, scrollRef }) {
   const { theme } = useApp();
   const Container = edges ? SafeAreaView : View;
 
@@ -19,6 +19,7 @@ export default function Screen({ children, scroll = true, style, contentStyle, e
   return (
     <Container {...(edges ? { edges: ['top', 'left', 'right', 'bottom'] } : {})} style={[styles.container, { backgroundColor: theme.colors.background }, style]}>
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"

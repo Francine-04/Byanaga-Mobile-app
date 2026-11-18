@@ -44,6 +44,17 @@ test('only currently valid and claimable approved vouchers are available', async
   assert.equal(isVoucherAvailable(normalizeVoucher('full', { ...base, claimCount: 5 }), now), false);
 });
 
+test('approved business matches vouchers saved under its profile or owner ID', async () => {
+  const { approvedEstablishmentIds, voucherBelongsToProfile } = await modulePromise;
+  const profile = { dashboardId: 'profile-1', ownerId: 'owner-1' };
+  const ids = approvedEstablishmentIds([profile]);
+  assert.equal(ids.has('profile-1'), true);
+  assert.equal(ids.has('owner-1'), true);
+  assert.equal(voucherBelongsToProfile({ establishmentId: 'profile-1' }, profile), true);
+  assert.equal(voucherBelongsToProfile({ establishmentId: 'owner-1' }, profile), true);
+  assert.equal(voucherBelongsToProfile({ establishmentId: 'other' }, profile), false);
+});
+
 test('establishment content is attached only by its dashboard profile ID', async () => {
   const { attachEstablishmentContent } = await modulePromise;
   const [profile] = attachEstablishmentContent({

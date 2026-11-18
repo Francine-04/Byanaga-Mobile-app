@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -22,12 +22,18 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
   const { theme } = useApp();
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapAttempt, setMapAttempt] = useState(0);
   const accessToken = getMapboxAccessToken();
   const selectedCenter = useMemo(() => getSelectedZoneLngLat(zones, selectedZoneId), [selectedZoneId, zones]);
   const featureCollection = useMemo(
     () => heatZonesToFeatureCollection(zones, (zone) => getZoneColor(theme, zone.colorKey)),
     [theme, zones]
   );
+  useEffect(() => {
+    if (mapReady || mapError || !accessToken) return undefined;
+    const timer = setTimeout(() => setMapError('Live map tiles did not appear. Check your connection and retry.'), 20000);
+    return () => clearTimeout(timer);
+  }, [mapAttempt, mapReady, mapError, accessToken]);
 
   if (
     !Mapbox?.MapView ||
@@ -43,7 +49,7 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
         <Text accessibilityRole="alert" style={{ color: theme.colors.danger, marginTop: 12, lineHeight: 20 }}>
           {!accessToken ? 'Mapbox token is missing from this build.' : mapError || 'Mapbox requires a new native build, not Expo Go. The view below is a map preview.'}
         </Text>
-        {mapError ? <Pressable accessibilityRole="button" accessibilityLabel="Retry map" onPress={() => setMapError(null)} style={{ minHeight: 44, justifyContent: 'center' }}>
+        {mapError ? <Pressable accessibilityRole="button" accessibilityLabel="Retry map" onPress={() => { setMapReady(false); setMapError(null); setMapAttempt((attempt) => attempt + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}>
           <Text style={{ color: theme.colors.primary }}>Retry Map</Text>
         </Pressable> : null}
         <MapPlaceholder
@@ -60,13 +66,15 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
   return (
     <View style={[styles.map, { backgroundColor: theme.colors.surfaceMuted, borderColor: theme.colors.border }, style]}>
       <Mapbox.MapView
+        key={mapAttempt}
         style={styles.mapFill}
         styleURL={getMapboxStyleUrl()}
         attributionEnabled
         logoEnabled
         compassEnabled={false}
         onDidFailLoadingMap={() => setMapError('Live map could not load. Please check your connection and Mapbox token.')}
-        onDidFinishLoadingMap={() => setMapReady(true)}
+        onMapLoadingError={() => setMapError('Live map tiles could not load. Please check your connection and Mapbox token.')}
+        onDidFinishRenderingMapFully={() => setMapReady(true)}
       >
         <Mapbox.Camera
           centerCoordinate={selectedZoneId ? selectedCenter : [NAGA_CENTER.longitude, NAGA_CENTER.latitude]}

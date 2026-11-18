@@ -28,14 +28,31 @@ export function generateItinerary({ destinations = [], restaurants = [], events 
     return true;
   });
   const used = new Set();
+  let reusedStops = false;
   const days = [];
   const dayCount = tripDayCount(selected.duration);
   const perDay = selected.duration === 'Half Day' ? 2 : 4;
   for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
     const dayDate = addTravelDays(date, dayIndex);
     const conditions = dayDate === today ? weather : null;
-    const ranked = matchByPreferences(selected, candidates.filter((place) => !used.has(normalizePlaceKey(place.name)) && availableOnDate(place, dayDate)), conditions, now);
-    const ordered = optimizeRoute(ranked.slice(0, perDay));
+    const available = candidates.filter((place) => availableOnDate(place, dayDate));
+    const unused = matchByPreferences(selected, available.filter((place) => !used.has(normalizePlaceKey(place.name))), conditions, now);
+    const repeatable = matchByPreferences(selected, available.filter((place) => used.has(normalizePlaceKey(place.name)) && !place.eventId), conditions, now);
+    const selectedPlaces = [...unused.slice(0, perDay)];
+    if (selectedPlaces.length < perDay) {
+      const remaining = perDay - selectedPlaces.length;
+      const repeatCandidates = repeatable.slice((dayIndex * perDay) % Math.max(repeatable.length, 1)).concat(repeatable);
+      const selectedNames = new Set(selectedPlaces.map((place) => normalizePlaceKey(place.name)));
+      const repeats = repeatCandidates.filter((place) => {
+        const name = normalizePlaceKey(place.name);
+        if (selectedNames.has(name)) return false;
+        selectedNames.add(name);
+        return true;
+      }).slice(0, remaining);
+      selectedPlaces.push(...repeats);
+      if (repeats.length) reusedStops = true;
+    }
+    const ordered = optimizeRoute(selectedPlaces);
     let nextMinute = 8 * 60;
     const places = [];
     for (const place of ordered) {
@@ -68,7 +85,7 @@ export function generateItinerary({ destinations = [], restaurants = [], events 
     : weatherSummary;
   return {
     days, travelDate: date,
-    advice: `${summary}${stops.length && days.some((day) => !day.places.length) ? ' Some days have no suggested stops because there are not enough available places. You can add stops manually.' : ''}`,
+    advice: `${summary}${reusedStops ? ' Some places appear on more than one day because the available catalog is smaller than your trip. You can replace them when customizing.' : ''}${stops.length && days.some((day) => !day.places.length) ? ' Some days have no suggested stops because there are not enough available places. You can add stops manually.' : ''}`,
     recommendation: {
       method: 'preference-matching-nearest-stop-v1', generatedAt: new Date(now).toISOString(),
       preferences: selected, travelDate: date,

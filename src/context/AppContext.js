@@ -31,7 +31,7 @@ import {
 } from '../services/itineraryService';
 import { fallbackWeather, fetchNagaWeather } from '../services/weatherService';
 import { makeTheme } from '../theme/theme';
-import { attachEstablishmentContent } from '../utils/establishmentContent';
+import { approvedEstablishmentIds as getApprovedEstablishmentIds, attachEstablishmentContent, voucherBelongsToProfile } from '../utils/establishmentContent';
 import { emptyPreferences } from '../utils/travelerPreferences';
 import { travelerOnboardingStep } from '../utils/travelerOnboarding';
 
@@ -373,7 +373,7 @@ export function AppProvider({ children }) {
   const theme = useMemo(() => makeTheme(colorScheme), [colorScheme]);
 
   const approvedEstablishmentIds = useMemo(
-    () => new Set(businessProfiles.map((profile) => profile.dashboardId).filter(Boolean)),
+    () => getApprovedEstablishmentIds(businessProfiles),
     [businessProfiles]
   );
   const visibleEstablishmentPosts = useMemo(() => establishmentPosts
@@ -464,7 +464,7 @@ export function AppProvider({ children }) {
   );
   const establishments = useMemo(() => establishmentProfiles.map((profile) => ({
     ...withSuppliedPlaceImages(profile),
-    vouchers: vouchers.filter((voucher) => voucher.establishmentId === profile.dashboardId),
+    vouchers: vouchers.filter((voucher) => voucherBelongsToProfile(voucher, profile)),
   })), [establishmentProfiles, vouchers]);
 
   const backendStatus = useMemo(() => ({

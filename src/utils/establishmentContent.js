@@ -79,13 +79,22 @@ export function isVoucherAvailable(voucher, now = Date.now()) {
   return true;
 }
 
+export function approvedEstablishmentIds(profiles = []) {
+  return new Set(profiles.flatMap((profile) => [profile.dashboardId, profile.ownerId].filter(Boolean)));
+}
+
+export function voucherBelongsToProfile(voucher, profile) {
+  return Boolean(voucher?.establishmentId &&
+    (voucher.establishmentId === profile?.dashboardId || voucher.establishmentId === profile?.ownerId));
+}
+
 export function attachEstablishmentContent({ profiles = [], posts = [], gallery = [], menuItems = [], vouchers = [] }) {
   return profiles.map((profile) => {
     const id = profile.dashboardId || profile.id;
     const matchingPosts = posts.filter((item) => item.establishmentId === id);
     const matchingGallery = gallery.filter((item) => item.establishmentId === id);
     const matchingMenu = menuItems.filter((item) => item.establishmentId === id);
-    const matchingVouchers = vouchers.filter((item) => item.establishmentId === id);
+    const matchingVouchers = vouchers.filter((item) => voucherBelongsToProfile(item, profile));
     const uploadedImages = [
       ...matchingGallery.map((item) => item.imageUrl),
       ...matchingPosts.flatMap((item) => item.imageUrls),

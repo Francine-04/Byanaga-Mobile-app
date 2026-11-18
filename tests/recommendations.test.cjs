@@ -22,7 +22,11 @@ test('day and week durations create consecutive days without repeating stops', (
   assert.equal(new Set(stops.map((stop) => stop.placeId)).size, 56);
   const sparse = generateItinerary({ destinations: catalog.slice(0, 1), preferences: { duration: '1 Week' }, travelDate: '2026-10-19' });
   assert.equal(sparse.days.length, 7);
-  assert.match(sparse.advice, /Some days have no suggested stops/);
+  assert.ok(sparse.days.every((day) => day.places.length === 1));
+  assert.match(sparse.advice, /Some places appear on more than one day/);
+  const eightDays = generateItinerary({ destinations: catalog.slice(0, 9), preferences: { duration: '8 Days', places: ['Nature'] }, travelDate: '2026-10-19' });
+  assert.equal(eightDays.days.length, 8);
+  assert.ok(eightDays.days.every((day) => day.places.length > 0));
 });
 
 test('visible recommendations include newly added interests and remove deselected ones', () => {
@@ -101,11 +105,11 @@ test('current rain changes suggestions, but stale readings and future trips do n
   assert.equal(stale.recommendation.weatherUsed, false);
   assert.equal(stale.days[0].places[0].title, 'park');
 });
-test('weekend generation uses distinct places and never invents stops for an empty backend', () => {
+test('weekend generation fills requested days and never invents stops for an empty backend', () => {
   const result = run({ preferences: { duration: 'Weekend' } });
   assert.equal(result.days.length, 2);
   const stops = result.days.flatMap((day) => day.places);
-  assert.equal(new Set(stops.map((stop) => stop.placeId)).size, stops.length);
+  assert.ok(result.days.every((day) => new Set(day.places.map((stop) => stop.placeId)).size === day.places.length));
   assert.equal(run({ destinations: [] }).days.length, 1);
   assert.equal(run({ destinations: [] }).days[0].places.length, 0);
 });
