@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
+import { isValidCoordinate } from '../utils/nagaBoundary';
 
 const defaultMarkers = [
   { id: 'm1', name: 'Basilica', top: '19%', left: '58%' },
@@ -22,6 +23,19 @@ export default function MapPlaceholder({
   style,
 }) {
   const { theme } = useApp();
+  const locatedZones = (zones || []).filter((zone) => isValidCoordinate(zone.latitude, zone.longitude));
+  const latitudes = locatedZones.map((zone) => Number(zone.latitude));
+  const longitudes = locatedZones.map((zone) => Number(zone.longitude));
+  const centerLat = 13.624;
+  const centerLng = 123.185;
+  const minLat = Math.min(centerLat - 0.015, ...latitudes);
+  const maxLat = Math.max(centerLat + 0.015, ...latitudes);
+  const minLng = Math.min(centerLng - 0.015, ...longitudes);
+  const maxLng = Math.max(centerLng + 0.015, ...longitudes);
+  const zonePosition = (zone) => ({
+    left: `${10 + 80 * (Number(zone.longitude) - minLng) / (maxLng - minLng)}%`,
+    top: `${10 + 80 * (maxLat - Number(zone.latitude)) / (maxLat - minLat)}%`,
+  });
 
   return (
     <View style={[styles.map, { backgroundColor: theme.dark ? '#162238' : '#EDF7F2', borderColor: theme.colors.border }, style]}>
@@ -33,6 +47,11 @@ export default function MapPlaceholder({
       <View style={[styles.park, { backgroundColor: theme.dark ? '#173C2A' : '#D8F2DF' }]} />
       <View style={[styles.district, { borderColor: theme.colors.border }]} />
       <Text style={[styles.cityLabel, { color: theme.colors.text }]}>Naga City</Text>
+      {showHeatmap && locatedZones.map((zone) => (
+        <Pressable key={zone.id} accessibilityRole="button" accessibilityLabel={`${zone.label}, ${zone.level || 'unknown'} activity`} onPress={() => onSelectZone?.(zone)} style={[styles.heatZone, zonePosition(zone), { backgroundColor: theme.crowd[zone.colorKey] || theme.colors.textMuted, borderColor: selectedZoneId === zone.id ? theme.colors.text : '#FFFFFF' }]}>
+          <Text style={styles.heatZoneLabel} numberOfLines={1}>{zone.label}</Text>
+        </Pressable>
+      ))}
       {largePin ? (
         <View style={styles.largePinWrap}>
           <View style={[styles.largePinShadow, { backgroundColor: `${theme.colors.primary}22` }]} />
@@ -133,6 +152,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
   },
+  heatZone: {
+    position: 'absolute', width: 24, height: 24, marginLeft: -12, marginTop: -12,
+    borderRadius: 12, borderWidth: 3, alignItems: 'center', justifyContent: 'center',
+  },
+  heatZoneLabel: { position: 'absolute', top: 23, width: 100, textAlign: 'center', fontSize: 9, fontWeight: '800', color: '#172333' },
   pin: {
     width: 30,
     height: 30,

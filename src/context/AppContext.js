@@ -456,12 +456,8 @@ export function AppProvider({ children }) {
     trips: !isGuestMode && firebaseUser ? savedTrips.filter((trip) => trip.userId === firebaseUser.uid) : [],
     zones: [],
     establishmentPosts: visibleEstablishmentPosts,
-    approvedEstablishmentIds, // Pass approved establishment IDs to filter vouchers
   });
-  const vouchers = useMemo(
-    () => liveVouchers.filter((voucher) => !voucher.establishmentId || approvedEstablishmentIds.has(voucher.establishmentId)),
-    [approvedEstablishmentIds, liveVouchers]
-  );
+  const vouchers = liveVouchers;
   const establishments = useMemo(() => establishmentProfiles.map((profile) => ({
     ...withSuppliedPlaceImages(profile),
     vouchers: vouchers.filter((voucher) => voucherBelongsToProfile(voucher, profile)),

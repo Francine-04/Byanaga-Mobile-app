@@ -23,6 +23,7 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapAttempt, setMapAttempt] = useState(0);
+  const [useBasicMap, setUseBasicMap] = useState(false);
   const accessToken = getMapboxAccessToken();
   const selectedCenter = useMemo(() => getSelectedZoneLngLat(zones, selectedZoneId), [selectedZoneId, zones]);
   const featureCollection = useMemo(
@@ -42,21 +43,27 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
     !Mapbox?.CircleLayer ||
     !accessToken ||
     mapError ||
-    mapboxLoadError
+    mapboxLoadError ||
+    useBasicMap
   ) {
     return (
       <View>
         <Text accessibilityRole="alert" style={{ color: theme.colors.danger, marginTop: 12, lineHeight: 20 }}>
-          {!accessToken ? 'Mapbox token is missing from this build.' : mapError || 'Mapbox requires a new native build, not Expo Go. The view below is a map preview.'}
+          {useBasicMap ? 'Basic heatmap view. Tap a place to inspect its recorded visits.' : !accessToken ? 'Mapbox token is missing from this build.' : mapError || 'Mapbox requires a new native build, not Expo Go. The view below is a map preview.'}
         </Text>
         {mapError ? <Pressable accessibilityRole="button" accessibilityLabel="Retry map" onPress={() => { setMapReady(false); setMapError(null); setMapAttempt((attempt) => attempt + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}>
           <Text style={{ color: theme.colors.primary }}>Retry Map</Text>
+        </Pressable> : null}
+        {useBasicMap && accessToken ? <Pressable accessibilityRole="button" accessibilityLabel="Try live map" onPress={() => { setMapReady(false); setMapError(null); setUseBasicMap(false); setMapAttempt((attempt) => attempt + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ color: theme.colors.primary }}>Try live map</Text>
         </Pressable> : null}
         <MapPlaceholder
         zones={zones}
         markers={markers}
         selectedZoneId={selectedZoneId}
         onSelectZone={onSelectZone}
+        showHeatmap
+        showMarkers={false}
         style={style}
         />
       </View>
@@ -124,11 +131,14 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
           />
         </Mapbox.ShapeSource>
       </Mapbox.MapView>
-      {!mapReady && <View style={styles.preview} pointerEvents="none"><MapPlaceholder zones={zones} markers={markers} selectedZoneId={selectedZoneId} style={styles.previewMap} /></View>}
+      {!mapReady && <View style={styles.preview} pointerEvents="none"><MapPlaceholder zones={zones} markers={markers} selectedZoneId={selectedZoneId} showHeatmap showMarkers={false} style={styles.previewMap} /></View>}
       <View style={[styles.badge, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Ionicons name="map-outline" size={14} color={theme.colors.primary} />
         <Text style={[styles.badgeText, { color: theme.colors.text }]}>Live Naga map</Text>
       </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Use basic heatmap if the live map is black" onPress={() => setUseBasicMap(true)} style={[styles.basicButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+        <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Map black? Basic view</Text>
+      </Pressable>
     </View>
   );
 }
@@ -165,5 +175,10 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '900',
+  },
+  basicButton: {
+    position: 'absolute', right: 12, bottom: 12, minHeight: 34,
+    borderRadius: 999, borderWidth: 1, paddingHorizontal: 12,
+    alignItems: 'center', justifyContent: 'center',
   },
 });

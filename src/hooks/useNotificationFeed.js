@@ -4,7 +4,7 @@ import { buildNotificationFeed } from '../utils/notificationFeed';
 import { notificationKey, saveNotificationReads, subscribeToNotificationReads, subscribeToPersonalNotices, subscribeToVouchers } from '../services/notificationService';
 import { isVoucherAvailable } from '../utils/establishmentContent';
 
-export default function useNotificationFeed({ userId, events, trips, zones, establishmentPosts = [], approvedEstablishmentIds }) {
+export default function useNotificationFeed({ userId, events, trips, zones, establishmentPosts = [] }) {
   const [approvedVouchers, setApprovedVouchers] = useState([]);
   const [direct, setDirect] = useState([]);
   const [reads, setReads] = useState({});
@@ -28,15 +28,12 @@ export default function useNotificationFeed({ userId, events, trips, zones, esta
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') setNow(Date.now()); });
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
-  // Subscribe to vouchers and filter by approved establishments
+  // Officer approval on the voucher is the publication gate. An establishment
+  // may be approved in `establishments` without a `business_profiles` document.
   useEffect(() => subscribeToVouchers((data) => {
-    // Filter vouchers: only show those without establishmentId OR with approved establishmentId
-    const filteredVouchers = data.filter((voucher) => 
-      !voucher.establishmentId || (approvedEstablishmentIds && approvedEstablishmentIds.has(voucher.establishmentId))
-    );
-    setApprovedVouchers(filteredVouchers);
+    setApprovedVouchers(data);
     error('offers', null);
-  }, (cause) => { setApprovedVouchers([]); error('offers', cause); }), [error, userId, approvedEstablishmentIds]);
+  }, (cause) => { setApprovedVouchers([]); error('offers', cause); }), [error]);
   const vouchers = useMemo(() => approvedVouchers.filter((voucher) => isVoucherAvailable(voucher, now)), [approvedVouchers, now]);
   useEffect(() => {
     let active = true;

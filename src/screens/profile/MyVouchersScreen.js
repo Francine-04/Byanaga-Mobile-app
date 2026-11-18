@@ -109,6 +109,8 @@ export default function MyVouchersScreen({ navigation }) {
                 ? 'Claim vouchers from the Offers section to see them here.'
                 : 'Vouchers you have redeemed will appear here.'
             }
+            buttonTitle={activeTab === 'active' ? 'Browse Offers' : undefined}
+            onPress={activeTab === 'active' ? () => navigation.navigate('Offers') : undefined}
           />
         ) : (
           displayedVouchers.map((claim) => (

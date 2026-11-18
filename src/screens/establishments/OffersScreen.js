@@ -158,7 +158,7 @@ export default function OffersScreen({ navigation, route }) {
       {ordered.length ? (
         <View style={styles.voucherList}>
           {ordered.map((voucher) => {
-            const establishment = establishments.find((item) => item.dashboardId === voucher.establishmentId);
+            const establishment = establishments.find((item) => voucherBelongsToProfile(voucher, item));
             return (
               <VoucherCard
                 key={voucher.id}
