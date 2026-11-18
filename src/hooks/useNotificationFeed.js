@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { buildNotificationFeed } from '../utils/notificationFeed';
 import { notificationKey, saveNotificationReads, subscribeToNotificationReads, subscribeToPersonalNotices, subscribeToVouchers } from '../services/notificationService';
+import { isVoucherAvailable } from '../utils/establishmentContent';
 
 export default function useNotificationFeed({ userId, events, trips, zones, establishmentPosts = [], approvedEstablishmentIds }) {
-  const [vouchers, setVouchers] = useState([]);
+  const [approvedVouchers, setApprovedVouchers] = useState([]);
   const [direct, setDirect] = useState([]);
   const [reads, setReads] = useState({});
   const [errors, setErrors] = useState({});
@@ -33,9 +34,10 @@ export default function useNotificationFeed({ userId, events, trips, zones, esta
     const filteredVouchers = data.filter((voucher) => 
       !voucher.establishmentId || (approvedEstablishmentIds && approvedEstablishmentIds.has(voucher.establishmentId))
     );
-    setVouchers(filteredVouchers);
+    setApprovedVouchers(filteredVouchers);
     error('offers', null);
-  }, (cause) => { setVouchers([]); error('offers', cause); }), [error, userId, approvedEstablishmentIds]);
+  }, (cause) => { setApprovedVouchers([]); error('offers', cause); }), [error, userId, approvedEstablishmentIds]);
+  const vouchers = useMemo(() => approvedVouchers.filter((voucher) => isVoucherAvailable(voucher, now)), [approvedVouchers, now]);
   useEffect(() => {
     let active = true;
     setDirect([]);

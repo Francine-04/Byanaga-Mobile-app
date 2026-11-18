@@ -1,6 +1,6 @@
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { onValue, ref, update, serverTimestamp } from 'firebase/database';
-import { isVoucherAvailable, normalizeVoucher } from '../utils/establishmentContent';
+import { normalizeVoucher } from '../utils/establishmentContent';
 import { auth, db, realtimeDb } from './firebaseApp';
 
 export function subscribeToVouchers(onData, onError) {
@@ -14,7 +14,6 @@ export function subscribeToVouchers(onData, onError) {
           if (seen && !seen.has(doc.id)) published.set(doc.id, now);
           return { ...normalizeVoucher(doc.id, doc.data()), publishedAt: published.get(doc.id) };
         })
-        .filter((voucher) => isVoucherAvailable(voucher, now))
         .sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
       seen = new Set(snapshot.docs.map((doc) => doc.id));
       onData(items);
