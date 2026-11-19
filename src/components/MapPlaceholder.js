@@ -49,7 +49,7 @@ export default function MapPlaceholder({
       <Text style={[styles.cityLabel, { color: theme.colors.text }]}>Naga City</Text>
       {showHeatmap && locatedZones.map((zone) => (
         <Pressable key={zone.id} accessibilityRole="button" accessibilityLabel={`${zone.label}, ${zone.level || 'unknown'} activity`} onPress={() => onSelectZone?.(zone)} style={[styles.heatZone, zonePosition(zone), { backgroundColor: theme.crowd[zone.colorKey] || theme.colors.textMuted, borderColor: selectedZoneId === zone.id ? theme.colors.text : '#FFFFFF' }]}>
-          <Text style={styles.heatZoneLabel} numberOfLines={1}>{zone.label}</Text>
+          {selectedZoneId === zone.id ? <Text style={styles.heatZoneLabel} numberOfLines={1}>{zone.label}</Text> : null}
         </Pressable>
       ))}
       {largePin ? (

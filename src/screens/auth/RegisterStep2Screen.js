@@ -84,7 +84,7 @@ export default function RegisterStep2Screen({ navigation, route }) {
       setPreferences(appState.preferences);
       setIsGuestMode(false);
       setIsLoggedIn(true);
-      navigation.getParent()?.navigate('LocationPermission');
+      navigation.replace('VerifyEmail', { email: result.user.email, next: 'LocationPermission', sendError: result.verificationEmailError?.message });
     } catch (authError) {
       setError(getFirebaseAuthMessage(authError));
     } finally {

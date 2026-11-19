@@ -258,6 +258,10 @@ export default function LoginScreen({ navigation, route }) {
       const appState = travelerRecordToAppState(result.record, result.user);
       setProfile((current) => ({ ...current, ...appState.profile }));
       setPreferences((current) => ({ ...current, ...appState.preferences }));
+      if (result.record?.emailVerificationRequired && !result.user.emailVerified) {
+        navigation.replace('VerifyEmail', { email: result.user.email, next: 'login' });
+        return;
+      }
       continueAfterEmailLogin(result);
     } catch (error) {
       const message = getFirebaseAuthMessage(error);

@@ -12,6 +12,8 @@ import {
   signInWithPopup,
   signOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  reload,
   updateProfile,
   verifyPasswordResetCode,
 } from 'firebase/auth';
@@ -87,6 +89,7 @@ export async function registerTraveler({ email, password, profile, preferences }
       authProvider: 'password',
       authProviders: ['password'],
       emailVerified: user.emailVerified,
+      emailVerificationRequired: true,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
@@ -98,7 +101,33 @@ export async function registerTraveler({ email, password, profile, preferences }
   }
 
   const record = await loadTravelerRecord(user.uid);
-  return { user, record };
+  let verificationEmailError = null;
+  try {
+    await sendEmailVerification(user);
+  } catch (error) {
+    verificationEmailError = error;
+  }
+  return { user, record, verificationEmailError };
+}
+
+export async function resendTravelerVerificationEmail() {
+  const user = await ensureAuthenticatedUser();
+  await reload(user);
+  if (user.emailVerified) return false;
+  await sendEmailVerification(user);
+  return true;
+}
+
+export async function confirmTravelerEmailVerification() {
+  const user = await ensureAuthenticatedUser();
+  await reload(user);
+  if (!user.emailVerified) return false;
+  await updateDoc(doc(db, USERS_COLLECTION, user.uid), {
+    emailVerified: true,
+    emailVerificationRequired: false,
+    updatedAt: serverTimestamp(),
+  });
+  return true;
 }
 
 export async function loginTraveler({ email, password }) {

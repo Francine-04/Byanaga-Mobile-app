@@ -144,7 +144,7 @@ function WeatherStatus({ weatherError, source }) {
   if (source === 'open-meteo' && !weatherError) return null;
   return (
     <Text numberOfLines={2} style={styles.statusText}>
-      {source === 'open-meteo' ? 'Showing last weather update. Try refreshing.' : 'Weather unavailable. Please try again.'}
+      {source === 'open-meteo' ? 'Showing last saved weather. Refresh when connected.' : weatherError ? `Weather unavailable: ${weatherError}` : 'Loading current weather...'}
     </Text>
   );
 }

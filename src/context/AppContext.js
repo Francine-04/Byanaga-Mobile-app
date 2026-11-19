@@ -40,6 +40,7 @@ import { fetchGeoapifyPlaces } from '../services/geoapifyPlacesService';
 import { withSuppliedPlaceImages, placesWithImages } from '../utils/suppliedPlaceImages';
 import { dedupePlaces } from '../utils/dedupePlaces';
 const STORAGE_KEY = 'byanaga.traveler.v1';
+const WEATHER_CACHE_KEY = 'byanaga.nagaWeather.v1';
 
 export function AppProvider({ children }) {
   const [geoPlaces, setGeoPlaces] = useState([]);
@@ -59,6 +60,7 @@ export function AppProvider({ children }) {
   const [locationPermission, setLocationPermission] = useState('undecided');
   const [preferences, setPreferences] = useState(emptyPreferences);
   const [travelerReady, setTravelerReady] = useState(false);
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(null);
   const [catalogState, setCatalogState] = useState({ destinations: 'loading', businessProfiles: 'loading' });
   const [bookmarks, setBookmarks] = useState([]);
@@ -79,6 +81,18 @@ export function AppProvider({ children }) {
   const [itineraryError, setItineraryError] = useState(null);
   const [weather, setWeather] = useState(fallbackWeather);
   const [weatherError, setWeatherError] = useState(null);
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(WEATHER_CACHE_KEY).then((raw) => {
+      if (!active || !raw) return;
+      const cached = JSON.parse(raw);
+      const age = Date.now() - Date.parse(cached?.updatedAt);
+      if (cached?.source === 'open-meteo' && Number.isFinite(cached.temperature) && age >= 0 && age < 24 * 60 * 60 * 1000) {
+        setWeather((current) => current.source === 'open-meteo' ? current : cached);
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   const [profile, setProfile] = useState({
     name: 'Tourist',
     phone: '',
@@ -114,6 +128,7 @@ export function AppProvider({ children }) {
       setProfile(travelerRecordToAppState(null, user).profile);
       setTravelerReady(false);
       setOnboardingStep(null);
+      setEmailVerificationRequired(false);
       setLocationPermission('undecided');
       setAuthReady(false);
       if (!user || user.isAnonymous) {
@@ -183,6 +198,7 @@ export function AppProvider({ children }) {
       setProfile(state.profile);
       setPreferences(state.preferences);
       setOnboardingStep(travelerOnboardingStep(record));
+      setEmailVerificationRequired(record?.emailVerificationRequired === true && !firebaseUser.emailVerified);
       setLocationPermission(record?.locationPermission || 'undecided');
       setBookmarks(Array.isArray(record?.bookmarks) ? record.bookmarks : []);
       setTravelerReady(true);
@@ -354,6 +370,7 @@ export function AppProvider({ children }) {
       const nextWeather = await fetchNagaWeather();
       setWeather(nextWeather);
       setWeatherError(null);
+      AsyncStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(nextWeather)).catch(() => {});
       return nextWeather;
     } catch (error) {
       const message = error?.message || 'Unable to load weather.';
@@ -569,6 +586,7 @@ export function AppProvider({ children }) {
       firebaseUser,
       authReady,
       travelerReady,
+      emailVerificationRequired,
       onboardingStep,
       recommendationCatalog,
       locationPermission,
@@ -622,6 +640,7 @@ export function AppProvider({ children }) {
       firebaseUser,
       authReady,
       travelerReady,
+      emailVerificationRequired,
       onboardingStep,
       recommendationCatalog,
       locationPermission,

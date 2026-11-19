@@ -32,7 +32,7 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
   );
   useEffect(() => {
     if (mapReady || mapError || !accessToken) return undefined;
-    const timer = setTimeout(() => setMapError('Live map tiles did not appear. Check your connection and retry.'), 20000);
+    const timer = setTimeout(() => setMapError('Live map tiles did not appear. The basic heatmap remains available below.'), 12000);
     return () => clearTimeout(timer);
   }, [mapAttempt, mapReady, mapError, accessToken]);
 
@@ -49,11 +49,8 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
     return (
       <View>
         <Text accessibilityRole="alert" style={{ color: theme.colors.danger, marginTop: 12, lineHeight: 20 }}>
-          {useBasicMap ? 'Basic heatmap view. Tap a place to inspect its recorded visits.' : !accessToken ? 'Mapbox token is missing from this build.' : mapError || 'Mapbox requires a new native build, not Expo Go. The view below is a map preview.'}
+        {useBasicMap ? 'Basic heatmap view. Tap a dot to inspect its recorded visits.' : !accessToken ? 'Mapbox token is missing from this build.' : mapError || 'Mapbox requires a new native build, not Expo Go. The view below is a map preview.'}
         </Text>
-        {mapError ? <Pressable accessibilityRole="button" accessibilityLabel="Retry map" onPress={() => { setMapReady(false); setMapError(null); setMapAttempt((attempt) => attempt + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <Text style={{ color: theme.colors.primary }}>Retry Map</Text>
-        </Pressable> : null}
         {useBasicMap && accessToken ? <Pressable accessibilityRole="button" accessibilityLabel="Try live map" onPress={() => { setMapReady(false); setMapError(null); setUseBasicMap(false); setMapAttempt((attempt) => attempt + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}>
           <Text style={{ color: theme.colors.primary }}>Try live map</Text>
         </Pressable> : null}
@@ -79,8 +76,8 @@ export default function LiveHeatmapMap({ zones = [], markers = [], selectedZoneI
         attributionEnabled
         logoEnabled
         compassEnabled={false}
-        onDidFailLoadingMap={() => setMapError('Live map could not load. Please check your connection and Mapbox token.')}
-        onMapLoadingError={() => setMapError('Live map tiles could not load. Please check your connection and Mapbox token.')}
+        onDidFailLoadingMap={() => setMapError('Live map unavailable. The basic heatmap remains available below.')}
+        onMapLoadingError={() => setMapError('Live map tiles unavailable. The basic heatmap remains available below.')}
         onDidFinishRenderingMapFully={() => setMapReady(true)}
       >
         <Mapbox.Camera

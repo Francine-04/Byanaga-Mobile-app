@@ -21,6 +21,7 @@ coverage/
 
 # Local environment files
 .expo-verification/
+.expo-email-verification-check/
 .env
 .env.*
 !.env.example

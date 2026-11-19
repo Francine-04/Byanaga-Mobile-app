@@ -111,7 +111,7 @@ async function requestNagaWeather() {
 
 async function requestWeatherPayload(params) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const response = await fetch(`${OPEN_METEO_FORECAST_URL}?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
     if (!response.ok) throw new Error(`Weather request failed with status ${response.status}.`);
